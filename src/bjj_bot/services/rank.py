@@ -39,3 +39,28 @@ def promote_belt(state: RankState) -> RankState:
     if index >= len(BELT_ORDER) - 1:
         raise RankError("Black belt is terminal in v1")
     return RankState(belt=BELT_ORDER[index + 1], stripes=0)
+
+
+def all_rank_states() -> list[RankState]:
+    return [RankState(belt=belt, stripes=stripes) for belt in BELT_ORDER for stripes in range(MAX_STRIPES + 1)]
+
+
+def rank_position(state: RankState) -> int:
+    try:
+        belt_index = BELT_ORDER.index(state.belt)
+    except ValueError as exc:
+        raise RankError("Unknown belt") from exc
+    if state.stripes < 0 or state.stripes > MAX_STRIPES:
+        raise RankError("Unknown stripe count")
+    return belt_index * (MAX_STRIPES + 1) + state.stripes
+
+
+def next_rank_choices(state: RankState) -> list[RankState]:
+    current_position = rank_position(state)
+    return [candidate for candidate in all_rank_states() if rank_position(candidate) > current_position]
+
+
+def set_rank(current: RankState, target: RankState) -> RankState:
+    if rank_position(target) <= rank_position(current):
+        raise RankError("Pick a higher rank")
+    return target

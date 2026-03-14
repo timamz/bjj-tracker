@@ -2,39 +2,113 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bjj_bot.services.arsenal import CategoryNode
 
+WEEKDAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+MONTH_NAMES = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
 
-def main_menu_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Log Session"), KeyboardButton(text="Upgrade")],
-            [KeyboardButton(text="My Progress"), KeyboardButton(text="History")],
-            [KeyboardButton(text="Arsenal")],
-        ],
-        resize_keyboard=True,
+
+def _navigation_row(back_callback: str | None = None) -> list[InlineKeyboardButton]:
+    row: list[InlineKeyboardButton] = []
+    if back_callback:
+        row.append(InlineKeyboardButton(text="◀️ Back", callback_data=back_callback))
+    row.append(InlineKeyboardButton(text="🏠 Open Menu", callback_data="menu:home"))
+    return row
+
+
+def prompt_keyboard(*, back_callback: str | None = None) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[_navigation_row(back_callback)])
+
+
+def main_menu_actions_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🥷 Me", callback_data="menu:me")],
+            [InlineKeyboardButton(text="🥋 Arsenal", callback_data="menu:arsenal")],
+            [InlineKeyboardButton(text="📝 Log Session", callback_data="menu:log_session")],
+        ]
     )
 
 
-def date_picker_keyboard(prefix: str) -> InlineKeyboardMarkup:
-    today = date.today()
-    dates = [today - timedelta(days=offset) for offset in range(4)]
+def me_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="ℹ️ Info", callback_data="me:info")],
+            [InlineKeyboardButton(text="⬆️ Upgrade", callback_data="me:upgrade")],
+            [InlineKeyboardButton(text="🗓️ Session History", callback_data="me:sessions")],
+            [InlineKeyboardButton(text="🧾 Upgrade History", callback_data="me:upgrades")],
+            _navigation_row("menu:home"),
+        ]
+    )
+
+
+def arsenal_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📚 Library", callback_data="arsenal:browse:root")],
+            [InlineKeyboardButton(text="➕ Add Move", callback_data="arsenal:add")],
+            [InlineKeyboardButton(text="🔎 Search", callback_data="arsenal:search")],
+            [InlineKeyboardButton(text="🕘 Recent Moves", callback_data="arsenal:recent")],
+            _navigation_row("menu:home"),
+        ]
+    )
+
+
+def format_quick_date_label(value: date) -> str:
+    weekday = WEEKDAY_NAMES[value.weekday()]
+    month = MONTH_NAMES[value.month - 1]
+    return f"{weekday}, {value.day} {month}"
+
+
+def date_picker_keyboard(
+    prefix: str,
+    *,
+    today: date,
+    custom_target: str | None = None,
+    back_callback: str | None = None,
+    extra_buttons: list[tuple[str, str]] | None = None,
+) -> InlineKeyboardMarkup:
+    dates = [today - timedelta(days=offset) for offset in range(7)]
     rows = [
-        [InlineKeyboardButton(text=day.strftime("%b %d"), callback_data=f"{prefix}:{day.isoformat()}")]
+        [InlineKeyboardButton(text=format_quick_date_label(day), callback_data=f"{prefix}:{day.isoformat()}")]
         for day in dates
     ]
+    if custom_target:
+        rows.append([InlineKeyboardButton(text="🗓️ Other Date", callback_data=f"custom_date:{custom_target}")])
+    for label, callback_data in extra_buttons or []:
+        rows.append([InlineKeyboardButton(text=label, callback_data=callback_data)])
+    rows.append(_navigation_row(back_callback))
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def promotion_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="+ Stripe", callback_data="upgrade:stripe")],
-            [InlineKeyboardButton(text="New Belt", callback_data="upgrade:belt")],
-        ]
-    )
+def rank_picker_keyboard(
+    *,
+    options: list[tuple[str, str]],
+    callback_prefix: str,
+    back_callback: str | None,
+) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=label, callback_data=f"{callback_prefix}:{rank_key}")] for rank_key, label in options]
+    rows.append(_navigation_row(back_callback))
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def upgrade_keyboard(options: list[tuple[str, str]]) -> InlineKeyboardMarkup:
+    return rank_picker_keyboard(options=options, callback_prefix="upgrade:set", back_callback="menu:me")
 
 
 def session_builder_keyboard(
@@ -44,6 +118,7 @@ def session_builder_keyboard(
     moves: list[tuple[int, str, bool]],
     category_code: str | None,
     recent_moves: list[tuple[int, str, bool]] | None = None,
+    recent: bool = False,
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for node in category_nodes:
@@ -52,69 +127,171 @@ def session_builder_keyboard(
     for move_id, name, selected in moves:
         prefix = "✓ " if selected else ""
         rows.append([InlineKeyboardButton(text=f"{prefix}{name}", callback_data=f"session:toggle:{move_id}")])
-    if recent_moves:
-        for move_id, name, selected in recent_moves:
-            prefix = "✓ " if selected else ""
-            rows.append(
-                [InlineKeyboardButton(text=f"Recent · {prefix}{name}", callback_data=f"session:toggle:{move_id}")]
-            )
-    nav_row = []
+    for move_id, name, selected in recent_moves or []:
+        prefix = "✓ " if selected else ""
+        rows.append([InlineKeyboardButton(text=f"🕘 {prefix}{name}", callback_data=f"session:toggle:{move_id}")])
+
+    action_row: list[InlineKeyboardButton] = []
+    if category_code is None and not recent:
+        action_row.append(InlineKeyboardButton(text="🕘 Recent", callback_data="session:recent"))
+    action_row.append(InlineKeyboardButton(text=f"💾 Save ({selected_count})", callback_data="session:save"))
+    rows.append(action_row)
+    rows.append([InlineKeyboardButton(text="➕ Add New Move", callback_data="session:add_move")])
+
     if category_code:
-        nav_row.append(InlineKeyboardButton(text="Back", callback_data=f"session:back:{category_code}"))
+        back_callback = f"session:back:{category_code}"
+    elif recent:
+        back_callback = "session:root"
     else:
-        nav_row.append(InlineKeyboardButton(text="Recent", callback_data="session:recent"))
-    nav_row.append(InlineKeyboardButton(text=f"Save ({selected_count})", callback_data="session:save"))
-    rows.append(nav_row)
-    rows.append([InlineKeyboardButton(text="Add New Move", callback_data="session:add_move")])
+        back_callback = "menu:log_session"
+    rows.append(_navigation_row(back_callback))
     return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
-def arsenal_root_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Browse Groups", callback_data="arsenal:browse:root")],
-            [InlineKeyboardButton(text="Add Move", callback_data="arsenal:add")],
-            [InlineKeyboardButton(text="Search", callback_data="arsenal:search")],
-            [InlineKeyboardButton(text="Recent Moves", callback_data="arsenal:recent")],
-        ]
-    )
 
 
 def category_picker_keyboard(
     *,
     category_nodes: list[CategoryNode],
     current_code: str | None,
-    use_action: str,
     open_action: str,
-    back_action: str,
+    back_action: str | None,
+    root_back_callback: str | None,
+    select_leaf_action: str | None = None,
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
-    if current_code:
-        rows.append([InlineKeyboardButton(text="Use This Group", callback_data=f"{use_action}:{current_code}")])
-        rows.append([InlineKeyboardButton(text="Back", callback_data=f"{back_action}:{current_code}")])
     for node in category_nodes:
-        rows.append([InlineKeyboardButton(text=node.category.name, callback_data=f"{open_action}:{node.category.code}")])
+        if select_leaf_action and node.child_count == 0:
+            callback_data = f"{select_leaf_action}:{node.category.code}"
+        else:
+            callback_data = f"{open_action}:{node.category.code}"
+        rows.append([InlineKeyboardButton(text=node.category.name, callback_data=callback_data)])
+
+    back_callback = root_back_callback
+    if current_code and back_action:
+        back_callback = f"{back_action}:{current_code}"
+    rows.append(_navigation_row(back_callback))
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def moves_keyboard(prefix: str, moves: list[tuple[int, str]]) -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton(text=name, callback_data=f"{prefix}:{move_id}")]
-        for move_id, name in moves
-    ]
+def moves_keyboard(prefix: str, moves: list[tuple[int, str]], *, back_callback: str | None) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=name, callback_data=f"{prefix}:{move_id}")] for move_id, name in moves]
+    rows.append(_navigation_row(back_callback))
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def history_keyboard(
+    item_rows: list[tuple[str, str]],
+    *,
+    offset: int,
+    has_previous: bool,
+    has_next: bool,
+    back_callback: str | None,
+) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=label, callback_data=callback_data)] for callback_data, label in item_rows]
+    nav_row: list[InlineKeyboardButton] = []
+    if has_previous:
+        nav_row.append(InlineKeyboardButton(text="◀️ Newer", callback_data=f"history:{max(0, offset - 10)}"))
+    if has_next:
+        nav_row.append(InlineKeyboardButton(text="Older ▶️", callback_data=f"history:{offset + 10}"))
+    if nav_row:
+        rows.append(nav_row)
+    rows.append(_navigation_row(back_callback))
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def upgrade_history_keyboard(
+    item_rows: list[tuple[str, str]],
+    *,
+    offset: int,
+    has_previous: bool,
+    has_next: bool,
+) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text=label, callback_data=callback_data)] for callback_data, label in item_rows]
+    nav_row: list[InlineKeyboardButton] = []
+    if has_previous:
+        nav_row.append(InlineKeyboardButton(text="◀️ Newer", callback_data=f"promotion_history:{max(0, offset - 10)}"))
+    if has_next:
+        nav_row.append(InlineKeyboardButton(text="Older ▶️", callback_data=f"promotion_history:{offset + 10}"))
+    if nav_row:
+        rows.append(nav_row)
+    rows.append(_navigation_row("menu:me"))
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def move_details_keyboard(move_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Edit Note", callback_data=f"move:note:{move_id}")],
-            [InlineKeyboardButton(text="Arsenal Home", callback_data="arsenal:home")],
+            [InlineKeyboardButton(text="✏️ Edit Move", callback_data=f"move:edit:{move_id}")],
+            [InlineKeyboardButton(text="🗑️ Delete Move", callback_data=f"move:delete:{move_id}")],
+            _navigation_row("arsenal:home"),
         ]
     )
 
 
-def history_keyboard(next_offset: int) -> InlineKeyboardMarkup:
+def move_edit_keyboard(move_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="More", callback_data=f"history:{next_offset}")]]
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🏷️ Name", callback_data=f"move:edit_name:{move_id}")],
+            [InlineKeyboardButton(text="🗂️ Group", callback_data=f"move:edit_group:{move_id}")],
+            [InlineKeyboardButton(text="🔖 Tags", callback_data=f"move:edit_tags:{move_id}")],
+            [InlineKeyboardButton(text="📝 Note", callback_data=f"move:edit_note:{move_id}")],
+            _navigation_row(f"move:view:{move_id}"),
+        ]
+    )
+
+
+def confirm_delete_move_keyboard(move_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🗑️ Delete", callback_data=f"move:delete_confirm:{move_id}")],
+            _navigation_row(f"move:view:{move_id}"),
+        ]
+    )
+
+
+def session_details_keyboard(session_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🗓️ Edit Date", callback_data=f"logged_session:date:{session_id}")],
+            [InlineKeyboardButton(text="🥋 Edit Moves", callback_data=f"logged_session:moves:{session_id}")],
+            [InlineKeyboardButton(text="🗑️ Delete Session", callback_data=f"logged_session:delete:{session_id}")],
+            _navigation_row("me:sessions"),
+        ]
+    )
+
+
+def confirm_delete_session_keyboard(session_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🗑️ Delete", callback_data=f"logged_session:delete_confirm:{session_id}")],
+            _navigation_row(f"logged_session:view:{session_id}"),
+        ]
+    )
+
+
+def promotion_details_keyboard(promotion_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🥋 Edit Level", callback_data=f"promotion:rank:{promotion_id}")],
+            [InlineKeyboardButton(text="🗓️ Edit Date", callback_data=f"promotion:date:{promotion_id}")],
+            [InlineKeyboardButton(text="🗑️ Delete Upgrade", callback_data=f"promotion:delete:{promotion_id}")],
+            _navigation_row("me:upgrades"),
+        ]
+    )
+
+
+def confirm_delete_promotion_keyboard(promotion_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🗑️ Delete", callback_data=f"promotion:delete_confirm:{promotion_id}")],
+            _navigation_row(f"promotion:view:{promotion_id}"),
+        ]
+    )
+
+
+def session_saved_keyboard(session_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Edit Session", callback_data=f"logged_session:view:{session_id}")],
+            _navigation_row("menu:home"),
+        ]
     )

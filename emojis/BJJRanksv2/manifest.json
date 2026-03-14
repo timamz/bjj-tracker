@@ -1,0 +1,311 @@
+{
+  "set_name": "BJJRanksv2",
+  "title": "BJJ Ranks Vol. 2",
+  "count": 38,
+  "stickers": [
+    {
+      "index": 1,
+      "filename": "01.webp",
+      "emoji": "\u2b1c\ufe0f",
+      "file_id": "CAACAgEAAxUAAWm0qxUas86m0bLhaPR_3n99sRmQAAJdAQAC0kChRlN7-ct_uiU0OgQ",
+      "file_unique_id": "AgADXQEAAtJAoUY",
+      "telegram_file_path": "stickers/file_38.webp"
+    },
+    {
+      "index": 2,
+      "filename": "02.webp",
+      "emoji": "1\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxVErS0bnuRpojqaQxE9HxhtAAJ8AQACA_ahRhgfWipQNXaPOgQ",
+      "file_unique_id": "AgADfAEAAgP2oUY",
+      "telegram_file_path": "stickers/file_39.webp"
+    },
+    {
+      "index": 3,
+      "filename": "03.webp",
+      "emoji": "2\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxUXEUwUizT0XcYXEunNKiKwAAJsAQACipGhRluli0Y2ZeKvOgQ",
+      "file_unique_id": "AgADbAEAAoqRoUY",
+      "telegram_file_path": "stickers/file_40.webp"
+    },
+    {
+      "index": 4,
+      "filename": "04.webp",
+      "emoji": "3\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxX96ZWux_unMgR7Ea2o5__VAAL7AAOnPaFGcGTjcMmeM-c6BA",
+      "file_unique_id": "AgAD-wADpz2hRg",
+      "telegram_file_path": "stickers/file_41.webp"
+    },
+    {
+      "index": 5,
+      "filename": "05.webp",
+      "emoji": "4\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxkBAAIBTmm0qGEJocibGgsLxfXmi3EDvDIXAAIGAQAClrugRq_2lbsU6BCROgQ",
+      "file_unique_id": "AgADBgEAApa7oEY",
+      "telegram_file_path": "stickers/file_42.webp"
+    },
+    {
+      "index": 6,
+      "filename": "06.webp",
+      "emoji": "\ud83d\udd35",
+      "file_id": "CAACAgEAAxUAAWm0qxUvCAZCtgZS5Jc9HUvIt7dPAALkAAO5KaBGIfOXkDZxPEc6BA",
+      "file_unique_id": "AgAD5AADuSmgRg",
+      "telegram_file_path": "stickers/file_43.webp"
+    },
+    {
+      "index": 7,
+      "filename": "07.webp",
+      "emoji": "1\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxV7shbD5uf_cvJ2SA7zkCprAAIyAQACk4mhRtpk7B_Yu8tgOgQ",
+      "file_unique_id": "AgADMgEAApOJoUY",
+      "telegram_file_path": "stickers/file_44.webp"
+    },
+    {
+      "index": 8,
+      "filename": "08.webp",
+      "emoji": "2\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxWm2S-iVbSA4V4q41V5VPOTAAJnAQACn52gRs1B6vJZ5CT6OgQ",
+      "file_unique_id": "AgADZwEAAp-doEY",
+      "telegram_file_path": "stickers/file_45.webp"
+    },
+    {
+      "index": 9,
+      "filename": "09.webp",
+      "emoji": "3\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxUUNPNfM-syzoAzsIgonTkXAAJgAQAC_K-gRpfJXePTZdrAOgQ",
+      "file_unique_id": "AgADYAEAAvyvoEY",
+      "telegram_file_path": "stickers/file_46.webp"
+    },
+    {
+      "index": 10,
+      "filename": "10.webp",
+      "emoji": "4\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxU0DhvM5WAP4ZxHqZ_1mR1XAAJaAQACgnuhRg-_hgN78AtsOgQ",
+      "file_unique_id": "AgADWgEAAoJ7oUY",
+      "telegram_file_path": "stickers/file_47.webp"
+    },
+    {
+      "index": 11,
+      "filename": "11.webp",
+      "emoji": "\ud83d\udfe3",
+      "file_id": "CAACAgEAAxUAAWm0qxXkHHeB2huD1AY3sIi0QLbwAAL5AAMWEaFG0DPGS3_7BYE6BA",
+      "file_unique_id": "AgAD-QADFhGhRg",
+      "telegram_file_path": "stickers/file_48.webp"
+    },
+    {
+      "index": 12,
+      "filename": "12.webp",
+      "emoji": "1\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxXzhphZ70Dd6oGLFRLtlGEbAAJEAQACCwOhRnr4j5LgxY5EOgQ",
+      "file_unique_id": "AgADRAEAAgsDoUY",
+      "telegram_file_path": "stickers/file_49.webp"
+    },
+    {
+      "index": 13,
+      "filename": "13.webp",
+      "emoji": "2\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxWE0tckGSyj29yN1Igx4yP-AAIjAQACpaCgRiLxMPHMwjGUOgQ",
+      "file_unique_id": "AgADIwEAAqWgoEY",
+      "telegram_file_path": "stickers/file_50.webp"
+    },
+    {
+      "index": 14,
+      "filename": "14.webp",
+      "emoji": "3\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxVOB-p5qYeW8_iaStZzPkNXAALDAQACnj6gRtma9vrCAlW2OgQ",
+      "file_unique_id": "AgADwwEAAp4-oEY",
+      "telegram_file_path": "stickers/file_51.webp"
+    },
+    {
+      "index": 15,
+      "filename": "15.webp",
+      "emoji": "4\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxUgCZsvMLI6z9rJMdMayWmvAAJkAQACsiGgRlNhcYhcvK7zOgQ",
+      "file_unique_id": "AgADZAEAArIhoEY",
+      "telegram_file_path": "stickers/file_52.webp"
+    },
+    {
+      "index": 16,
+      "filename": "16.webp",
+      "emoji": "\ud83d\udfeb",
+      "file_id": "CAACAgEAAxUAAWm0qxXHZ3h1WRiqsZ0qFld8Gk27AALZAANBYaFGTNremScX9qM6BA",
+      "file_unique_id": "AgAD2QADQWGhRg",
+      "telegram_file_path": "stickers/file_53.webp"
+    },
+    {
+      "index": 17,
+      "filename": "17.webp",
+      "emoji": "1\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxUNW4TzhPzU7_w8kU17U95xAAJlAQACpoWhRlK3XUqNAUtzOgQ",
+      "file_unique_id": "AgADZQEAAqaFoUY",
+      "telegram_file_path": "stickers/file_54.webp"
+    },
+    {
+      "index": 18,
+      "filename": "18.webp",
+      "emoji": "2\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxXdAAFarbGUO_KWzwc6DTNuoQACoQEAAmMJoUbpRkDR6DO8-joE",
+      "file_unique_id": "AgADoQEAAmMJoUY",
+      "telegram_file_path": "stickers/file_55.webp"
+    },
+    {
+      "index": 19,
+      "filename": "19.webp",
+      "emoji": "3\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxUnoKBZOeESpuP86GqzVpD1AALsAAN4DqBGhqztwoP9LJ46BA",
+      "file_unique_id": "AgAD7AADeA6gRg",
+      "telegram_file_path": "stickers/file_56.webp"
+    },
+    {
+      "index": 20,
+      "filename": "20.webp",
+      "emoji": "4\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxWaFtuF2K8m4dNm3bXuKOOzAAKjAQACmuuhRuo1VOmBBhxvOgQ",
+      "file_unique_id": "AgADowEAAprroUY",
+      "telegram_file_path": "stickers/file_57.webp"
+    },
+    {
+      "index": 21,
+      "filename": "21.webp",
+      "emoji": "\ud83d\udda4",
+      "file_id": "CAACAgEAAxUAAWm0qxVlu9nqDsgXtB7CSh0RQc4kAAJWAQACvRegRjv0VhkOOlVlOgQ",
+      "file_unique_id": "AgADVgEAAr0XoEY",
+      "telegram_file_path": "stickers/file_58.webp"
+    },
+    {
+      "index": 22,
+      "filename": "22.webp",
+      "emoji": "1\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxW7vF2S6PCrcd1IxJy95j5uAALSAAMXH6lG9DetO93h-KY6BA",
+      "file_unique_id": "AgAD0gADFx-pRg",
+      "telegram_file_path": "stickers/file_59.webp"
+    },
+    {
+      "index": 23,
+      "filename": "23.webp",
+      "emoji": "2\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxVuksYsgsYMmaYncyFeKtRFAAIPAQAChOqhRvnIIG2TdldLOgQ",
+      "file_unique_id": "AgADDwEAAoTqoUY",
+      "telegram_file_path": "stickers/file_60.webp"
+    },
+    {
+      "index": 24,
+      "filename": "24.webp",
+      "emoji": "3\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxVcqFGXHpUY42HpzJ5tIFKiAAKCAQAC82KhRp6Df8XCOXvnOgQ",
+      "file_unique_id": "AgADggEAAvNioUY",
+      "telegram_file_path": "stickers/file_61.webp"
+    },
+    {
+      "index": 25,
+      "filename": "25.webp",
+      "emoji": "4\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxW9fkYT2b4X2DXWICkv3scZAAJHAgACJAqgRsainBEflhYDOgQ",
+      "file_unique_id": "AgADRwIAAiQKoEY",
+      "telegram_file_path": "stickers/file_62.webp"
+    },
+    {
+      "index": 26,
+      "filename": "26.webp",
+      "emoji": "5\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxUaCTxFTLdS01FmfFPuPnogAAJMAQACbCWgRqywiIVGrvxGOgQ",
+      "file_unique_id": "AgADTAEAAmwloEY",
+      "telegram_file_path": "stickers/file_63.webp"
+    },
+    {
+      "index": 27,
+      "filename": "27.webp",
+      "emoji": "6\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxWokeKuzwmmdo7AlEHbA-lFAAJ7AQACidihRgJpS4-cFd2HOgQ",
+      "file_unique_id": "AgADewEAAonYoUY",
+      "telegram_file_path": "stickers/file_64.webp"
+    },
+    {
+      "index": 28,
+      "filename": "28.webp",
+      "emoji": "\ud83d\udda4",
+      "file_id": "CAACAgEAAxkBAAIBTWm0qFxZ4Rzo5x2MkENrUUKrLHpeAALHAAOMzKBGyfFMLpbjnTs6BA",
+      "file_unique_id": "AgADxwADjMygRg",
+      "telegram_file_path": "stickers/file_65.webp"
+    },
+    {
+      "index": 29,
+      "filename": "29.webp",
+      "emoji": "1\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxWqSqqNFHOmxIQi5IZV2t1rAAI-AgACA12gRh1rg0HsPhnROgQ",
+      "file_unique_id": "AgADPgIAAgNdoEY",
+      "telegram_file_path": "stickers/file_66.webp"
+    },
+    {
+      "index": 30,
+      "filename": "30.webp",
+      "emoji": "2\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxWLh3fVH93w4V1HmHaBNHuyAAIKAQAC1euhRrVgFDscN4oZOgQ",
+      "file_unique_id": "AgADCgEAAtXroUY",
+      "telegram_file_path": "stickers/file_67.webp"
+    },
+    {
+      "index": 31,
+      "filename": "31.webp",
+      "emoji": "3\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxVd1agTDwP0AoIf7IONh3yfAAKOAQACjGOhRtiUIUs9KIwTOgQ",
+      "file_unique_id": "AgADjgEAAoxjoUY",
+      "telegram_file_path": "stickers/file_68.webp"
+    },
+    {
+      "index": 32,
+      "filename": "32.webp",
+      "emoji": "4\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxWjnQABFWWA3TsYLwkINAABRUIAAjMBAAJLpaFG5DrP-9VZHL86BA",
+      "file_unique_id": "AgADMwEAAkuloUY",
+      "telegram_file_path": "stickers/file_69.webp"
+    },
+    {
+      "index": 33,
+      "filename": "33.webp",
+      "emoji": "5\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxVDhI_O-MeU02mdE5Bvpfd2AAJ_AQACrH2gRkN7EYnypJvCOgQ",
+      "file_unique_id": "AgADfwEAAqx9oEY",
+      "telegram_file_path": "stickers/file_70.webp"
+    },
+    {
+      "index": 34,
+      "filename": "34.webp",
+      "emoji": "6\ufe0f\u20e3",
+      "file_id": "CAACAgEAAxUAAWm0qxXX6n5XVV6DyeXck2XUiTkxAAIHAQACvqKgRpCP2liS0_IKOgQ",
+      "file_unique_id": "AgADBwEAAr6ioEY",
+      "telegram_file_path": "stickers/file_71.webp"
+    },
+    {
+      "index": 35,
+      "filename": "35.webp",
+      "emoji": "\ud83c\udde7\ud83c\uddf7",
+      "file_id": "CAACAgEAAxUAAWm0qxVKv9grEISO5ZuKEX00bZtaAAI8AQACgb6gRtC46WTLJNSXOgQ",
+      "file_unique_id": "AgADPAEAAoG-oEY",
+      "telegram_file_path": "stickers/file_72.webp"
+    },
+    {
+      "index": 36,
+      "filename": "36.webp",
+      "emoji": "\ud83c\udde7\ud83c\uddf7",
+      "file_id": "CAACAgEAAxUAAWm0qxUta6jlrwFecZXTEGob6qoQAALyAQACl1WhRlC0X6HUTl3WOgQ",
+      "file_unique_id": "AgAD8gEAApdVoUY",
+      "telegram_file_path": "stickers/file_73.webp"
+    },
+    {
+      "index": 37,
+      "filename": "37.webp",
+      "emoji": "\ud83c\udde7\ud83c\uddf7",
+      "file_id": "CAACAgEAAxUAAWm0qxU4YnIXiskM9T_39w_oZPW4AALMAAPRRaFGA6I-jVYW7pk6BA",
+      "file_unique_id": "AgADzAAD0UWhRg",
+      "telegram_file_path": "stickers/file_74.webp"
+    },
+    {
+      "index": 38,
+      "filename": "38.webp",
+      "emoji": "\ud83d\udd1f",
+      "file_id": "CAACAgEAAxUAAWm0qxUEXSm-4SZc_A-9cWiuufI7AALdAQAC5PehRp01x2_yRbuEOgQ",
+      "file_unique_id": "AgAD3QEAAuT3oUY",
+      "telegram_file_path": "stickers/file_75.webp"
+    }
+  ]
+}

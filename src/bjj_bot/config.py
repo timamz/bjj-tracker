@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     db_path: Path = Field(default=Path("/data/bjj_bot.sqlite3"), alias="DB_PATH")
     timezone: str = Field(default="UTC", alias="TIMEZONE")
     rank_stickers_raw: str = Field(default="{}", alias="RANK_STICKERS")
+    rank_custom_emojis_raw: str = Field(default="{}", alias="RANK_CUSTOM_EMOJIS")
+    belt_emojis_raw: str = Field(default="{}", alias="BELT_EMOJIS")
 
     @property
     def database_url(self) -> str:
@@ -21,11 +23,21 @@ class Settings(BaseSettings):
 
     @property
     def rank_stickers(self) -> dict[str, str]:
+        return self._parse_mapping(self.rank_stickers_raw)
+
+    @property
+    def rank_custom_emojis(self) -> dict[str, str]:
+        return self._parse_mapping(self.rank_custom_emojis_raw)
+
+    @property
+    def belt_emojis(self) -> dict[str, str]:
+        return self._parse_mapping(self.belt_emojis_raw)
+
+    def _parse_mapping(self, raw_value: str) -> dict[str, str]:
         try:
-            parsed = json.loads(self.rank_stickers_raw)
+            parsed = json.loads(raw_value)
         except json.JSONDecodeError:
             return {}
         if not isinstance(parsed, dict):
             return {}
         return {str(key): str(value) for key, value in parsed.items()}
-

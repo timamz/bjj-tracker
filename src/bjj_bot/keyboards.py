@@ -159,6 +159,7 @@ def category_picker_keyboard(
     back_action: str | None,
     root_back_callback: str | None,
     select_leaf_action: str | None = None,
+    edit_layout_callback: str | None = None,
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for node in category_nodes:
@@ -166,13 +167,46 @@ def category_picker_keyboard(
             callback_data = f"{select_leaf_action}:{node.category.code}"
         else:
             callback_data = f"{open_action}:{node.category.code}"
-        rows.append([InlineKeyboardButton(text=node.category.name, callback_data=callback_data)])
+        count_label = f" ({node.move_count})" if node.move_count else ""
+        rows.append([InlineKeyboardButton(text=f"{node.category.name}{count_label}", callback_data=callback_data)])
 
+    if edit_layout_callback:
+        rows.append([InlineKeyboardButton(text="✏️ Edit Layout", callback_data=edit_layout_callback)])
     back_callback = root_back_callback
     if current_code and back_action:
         back_callback = f"{back_action}:{current_code}"
     rows.append(_navigation_row(back_callback))
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def library_edit_keyboard(
+    *,
+    category_nodes: list[CategoryNode],
+    parent_slug: str,
+    back_callback: str,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    rows.append([InlineKeyboardButton(text="➕ Add Group", callback_data=f"libcat:add:{parent_slug}")])
+    for node in category_nodes:
+        count_label = f" ({node.move_count})" if node.move_count else ""
+        rows.append([
+            InlineKeyboardButton(
+                text=f"{node.category.name}{count_label}",
+                callback_data=f"libcat:edit:{node.category.code}",
+            ),
+            InlineKeyboardButton(text="🗑️", callback_data=f"libcat:delete:{node.category.code}"),
+        ])
+    rows.append(_navigation_row(back_callback))
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def confirm_delete_category_keyboard(code: str, back_callback: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🗑️ Delete", callback_data=f"libcat:delete_confirm:{code}")],
+            _navigation_row(back_callback),
+        ]
+    )
 
 
 def moves_keyboard(prefix: str, moves: list[tuple[int, str]], *, back_callback: str | None) -> InlineKeyboardMarkup:

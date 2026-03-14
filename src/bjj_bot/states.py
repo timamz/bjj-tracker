@@ -37,3 +37,7 @@ class CustomDateFlow(StatesGroup):
 
 class RankEmojiCaptureFlow(StatesGroup):
     waiting_for_custom_emoji = State()
+
+
+class LibCatFlow(StatesGroup):
+    waiting_for_name = State()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -100,6 +101,69 @@ async def list_child_categories(
         )
         for category in by_parent.get(parent_code, [])
     ]
+
+
+async def count_total_moves(session: AsyncSession, user_id: int) -> int:
+    result = await session.scalar(
+        select(func.count(ArsenalMove.id)).where(ArsenalMove.user_id == user_id)
+    )
+    return result or 0
+
+
+async def create_category(
+    session: AsyncSession,
+    *,
+    name: str,
+    parent_code: str | None,
+) -> ArsenalCategory:
+    where_clause = (
+        ArsenalCategory.parent_code.is_(None)
+        if parent_code is None
+        else ArsenalCategory.parent_code == parent_code
+    )
+    max_order = await session.scalar(select(func.max(ArsenalCategory.sort_order)).where(where_clause))
+    code = uuid.uuid4().hex[:12]
+    category = ArsenalCategory(
+        code=code,
+        name=name.strip(),
+        parent_code=parent_code,
+        sort_order=(max_order or 0) + 1,
+    )
+    session.add(category)
+    await session.commit()
+    return category
+
+
+async def delete_category(session: AsyncSession, code: str) -> bool:
+    all_categories = list((await session.execute(select(ArsenalCategory))).scalars())
+    by_parent: dict[str | None, list[str]] = defaultdict(list)
+    for cat in all_categories:
+        by_parent[cat.parent_code].append(cat.code)
+
+    codes_to_delete: list[str] = []
+
+    def _collect(cat_code: str) -> None:
+        codes_to_delete.append(cat_code)
+        for child_code in by_parent.get(cat_code, []):
+            _collect(child_code)
+
+    _collect(code)
+
+    move_ids_result = await session.execute(
+        select(ArsenalMove.id).where(ArsenalMove.category_code.in_(codes_to_delete))
+    )
+    move_ids = [row[0] for row in move_ids_result.all()]
+    if move_ids:
+        await session.execute(delete(SessionPracticedMove).where(SessionPracticedMove.move_id.in_(move_ids)))
+        await session.execute(delete(MoveTag).where(MoveTag.move_id.in_(move_ids)))
+        await session.execute(delete(ArsenalMove).where(ArsenalMove.id.in_(move_ids)))
+
+    for cat_code in reversed(codes_to_delete):
+        cat = await session.get(ArsenalCategory, cat_code)
+        if cat:
+            await session.delete(cat)
+    await session.commit()
+    return True
 
 
 async def get_category(session: AsyncSession, code: str) -> ArsenalCategory | None:

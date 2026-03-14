@@ -15,11 +15,13 @@ from bjj_bot.config import Settings
 from bjj_bot.keyboards import (
     arsenal_menu_keyboard,
     category_picker_keyboard,
+    confirm_delete_category_keyboard,
     confirm_delete_promotion_keyboard,
     confirm_delete_session_keyboard,
     confirm_delete_move_keyboard,
     date_picker_keyboard,
     history_keyboard,
+    library_edit_keyboard,
     main_menu_actions_keyboard,
     me_menu_keyboard,
     move_edit_keyboard,
@@ -46,6 +48,7 @@ from bjj_bot.states import (
     EditMoveFlow,
     EditPromotionFlow,
     EditSessionFlow,
+    LibCatFlow,
     MoveSearchFlow,
     RankEmojiCaptureFlow,
 )
@@ -89,15 +92,6 @@ def _timezone(settings: Settings) -> ZoneInfo:
 def _today(settings: Settings) -> date:
     return datetime.now(_timezone(settings)).date()
 
-
-def _preferred_session_add_move_category(data: dict) -> str | None:
-    current_category = data.get("current_session_category")
-    if current_category:
-        return current_category
-    last_category = data.get("last_session_category")
-    if last_category:
-        return last_category
-    return None
 
 
 def _duration_parts(start_date: date, end_date: date) -> tuple[int, int, int]:
@@ -168,6 +162,7 @@ async def _send_me_info(
             .order_by(Promotion.promotion_date, Promotion.created_at)
         )
         promotions = [(row[0], row[1], row[2]) for row in promotion_rows.all()]
+        total_moves = await arsenal_service.count_total_moves(session, user.id)
 
     is_black = progress.belt == Belt.BLACK.value
     visual = get_rank_visual(
@@ -195,6 +190,7 @@ async def _send_me_info(
             f"You are doing BJJ for {_format_duration(started_on, today)}",
             f"Total sessions: {progress.total_sessions}",
             f"Sessions in last 30 days: {sessions_last_30}",
+            f"Techniques in arsenal: {total_moves}",
             "",
             "Progress history:",
             *progress_lines,
@@ -552,12 +548,14 @@ async def _render_arsenal_browser(
                 )
                 await callback.answer()
                 return
+        parent_slug = category_code or "root"
         keyboard = category_picker_keyboard(
             category_nodes=categories,
             current_code=category_code,
             open_action="arsenal:browse",
             back_action="arsenal:back",
             root_back_callback="menu:arsenal",
+            edit_layout_callback=f"libcat:edit:{parent_slug}",
         )
     await callback.message.edit_text("📚 Library", reply_markup=keyboard)
     await callback.answer()
@@ -1247,14 +1245,13 @@ async def session_toggle_move(
 
 @router.callback_query(F.data == "session:add_move")
 async def session_add_move(callback: CallbackQuery, state: FSMContext) -> None:
-    data = await state.get_data()
     await state.update_data(
         add_move_origin="session",
-        add_move_category=_preferred_session_add_move_category(data),
+        add_move_category=None,
         add_move_prompt_back="session:return_to_picker",
     )
     await state.set_state(AddMoveFlow.waiting_for_name)
-    await callback.message.edit_text("➕ New move name?", reply_markup=prompt_keyboard(back_callback="session:return_to_picker"))
+    await callback.message.edit_text("➕ Move name?", reply_markup=prompt_keyboard(back_callback="session:return_to_picker"))
     await callback.answer()
 
 
@@ -2078,3 +2075,141 @@ async def save_move_note_edit(
     if not shown:
         await message.answer("Move not found", reply_markup=arsenal_menu_keyboard())
         return
+
+
+# ---------------------------------------------------------------------------
+# Library layout editing (add / delete groups)
+# ---------------------------------------------------------------------------
+
+async def _render_libcat_edit(
+    target_message,
+    session_maker: async_sessionmaker[AsyncSession],
+    user_id: int,
+    parent_slug: str,
+) -> None:
+    parent_code = None if parent_slug == "root" else parent_slug
+    async with session_maker() as session:
+        categories = await arsenal_service.list_child_categories(session, parent_code, user_id=user_id)
+        if parent_code:
+            cat = await arsenal_service.get_category(session, parent_code)
+            heading = f"✏️ Edit: {cat.name}" if cat else "✏️ Edit Layout"
+            back_callback = f"libcat:edit:{cat.parent_code}" if cat and cat.parent_code else "libcat:edit:root"
+        else:
+            heading = "✏️ Edit Layout"
+            back_callback = "menu:arsenal"
+    await target_message.edit_text(
+        heading,
+        reply_markup=library_edit_keyboard(
+            category_nodes=categories,
+            parent_slug=parent_slug,
+            back_callback=back_callback,
+        ),
+    )
+
+
+@router.callback_query(F.data.startswith("libcat:edit:"))
+async def libcat_edit_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    _, _, slug = callback.data.split(":", 2)
+    async with session_maker() as session:
+        u = await user_service.ensure_user(session, callback.from_user)
+    await state.clear()
+    await _render_libcat_edit(callback.message, session_maker, u.id, slug)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("libcat:add:"))
+async def libcat_add_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
+    _, _, parent_slug = callback.data.split(":", 2)
+    await state.clear()
+    await state.update_data(libcat_parent_slug=parent_slug)
+    await state.set_state(LibCatFlow.waiting_for_name)
+    await callback.message.edit_text(
+        "➕ Group name?",
+        reply_markup=prompt_keyboard(back_callback=f"libcat:edit:{parent_slug}"),
+    )
+    await callback.answer()
+
+
+@router.message(LibCatFlow.waiting_for_name)
+async def libcat_add_name(
+    message: Message,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    name = (message.text or "").strip()
+    if not name:
+        data = await state.get_data()
+        parent_slug = data.get("libcat_parent_slug", "root")
+        await message.answer(
+            "Send a group name",
+            reply_markup=prompt_keyboard(back_callback=f"libcat:edit:{parent_slug}"),
+        )
+        return
+    data = await state.get_data()
+    parent_slug = data.get("libcat_parent_slug", "root")
+    parent_code = None if parent_slug == "root" else parent_slug
+    async with session_maker() as session:
+        user = await user_service.ensure_user(session, message.from_user)
+        await arsenal_service.create_category(session, name=name, parent_code=parent_code)
+        categories = await arsenal_service.list_child_categories(session, parent_code, user_id=user.id)
+        if parent_code:
+            cat = await arsenal_service.get_category(session, parent_code)
+            heading = f"✏️ Edit: {cat.name}" if cat else "✏️ Edit Layout"
+            back_callback = f"libcat:edit:{cat.parent_code}" if cat and cat.parent_code else "libcat:edit:root"
+        else:
+            heading = "✏️ Edit Layout"
+            back_callback = "menu:arsenal"
+    await state.clear()
+    await message.answer(
+        heading,
+        reply_markup=library_edit_keyboard(
+            category_nodes=categories,
+            parent_slug=parent_slug,
+            back_callback=back_callback,
+        ),
+    )
+
+
+@router.callback_query(F.data.startswith("libcat:delete:"))
+async def libcat_delete_prompt(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    _, _, code = callback.data.split(":", 2)
+    async with session_maker() as session:
+        cat = await arsenal_service.get_category(session, code)
+    if cat is None:
+        await callback.answer("Group not found")
+        return
+    parent_slug = cat.parent_code or "root"
+    await state.update_data(libcat_delete_parent_slug=parent_slug)
+    await callback.message.edit_text(
+        f"Delete group \"{cat.name}\"?\nThis will also delete all moves and sub-groups inside it.",
+        reply_markup=confirm_delete_category_keyboard(code, back_callback=f"libcat:edit:{parent_slug}"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("libcat:delete_confirm:"))
+async def libcat_delete_confirm(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    _, _, code = callback.data.split(":", 2)
+    data = await state.get_data()
+    parent_slug = data.get("libcat_delete_parent_slug", "root")
+    async with session_maker() as session:
+        user = await user_service.ensure_user(session, callback.from_user)
+        await arsenal_service.delete_category(session, code)
+    await state.clear()
+    await _render_libcat_edit(callback.message, session_maker, user.id, parent_slug)
+    await callback.answer("Deleted")

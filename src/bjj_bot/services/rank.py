@@ -11,8 +11,21 @@ BELT_ORDER = [
     Belt.PURPLE.value,
     Belt.BROWN.value,
     Belt.BLACK.value,
+    Belt.CORAL.value,
+    Belt.RED_WHITE.value,
+    Belt.RED.value,
 ]
-MAX_STRIPES = 4
+
+MAX_STRIPES: dict[str, int] = {
+    Belt.WHITE.value: 4,
+    Belt.BLUE.value: 4,
+    Belt.PURPLE.value: 4,
+    Belt.BROWN.value: 4,
+    Belt.BLACK.value: 6,
+    Belt.CORAL.value: 0,
+    Belt.RED_WHITE.value: 0,
+    Belt.RED.value: 0,
+}
 
 
 class RankError(ValueError):
@@ -25,8 +38,13 @@ class RankState:
     stripes: int
 
 
+def max_stripes_for(belt: str) -> int:
+    return MAX_STRIPES.get(belt, 4)
+
+
 def add_stripe(state: RankState) -> RankState:
-    if state.stripes >= MAX_STRIPES:
+    limit = max_stripes_for(state.belt)
+    if state.stripes >= limit:
         raise RankError("Max stripes reached for current belt")
     return RankState(belt=state.belt, stripes=state.stripes + 1)
 
@@ -37,12 +55,16 @@ def promote_belt(state: RankState) -> RankState:
     except ValueError as exc:
         raise RankError("Unknown belt") from exc
     if index >= len(BELT_ORDER) - 1:
-        raise RankError("Black belt is terminal in v1")
+        raise RankError("Already at the highest belt")
     return RankState(belt=BELT_ORDER[index + 1], stripes=0)
 
 
 def all_rank_states() -> list[RankState]:
-    return [RankState(belt=belt, stripes=stripes) for belt in BELT_ORDER for stripes in range(MAX_STRIPES + 1)]
+    states: list[RankState] = []
+    for belt in BELT_ORDER:
+        for stripes in range(max_stripes_for(belt) + 1):
+            states.append(RankState(belt=belt, stripes=stripes))
+    return states
 
 
 def rank_position(state: RankState) -> int:
@@ -50,9 +72,13 @@ def rank_position(state: RankState) -> int:
         belt_index = BELT_ORDER.index(state.belt)
     except ValueError as exc:
         raise RankError("Unknown belt") from exc
-    if state.stripes < 0 or state.stripes > MAX_STRIPES:
+    limit = max_stripes_for(state.belt)
+    if state.stripes < 0 or state.stripes > limit:
         raise RankError("Unknown stripe count")
-    return belt_index * (MAX_STRIPES + 1) + state.stripes
+    pos = 0
+    for i in range(belt_index):
+        pos += max_stripes_for(BELT_ORDER[i]) + 1
+    return pos + state.stripes
 
 
 def next_rank_choices(state: RankState) -> list[RankState]:

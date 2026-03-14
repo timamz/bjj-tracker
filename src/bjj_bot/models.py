@@ -22,6 +22,9 @@ class Belt(StrEnum):
     PURPLE = "purple"
     BROWN = "brown"
     BLACK = "black"
+    CORAL = "coral"
+    RED_WHITE = "red_white"
+    RED = "red"
 
 
 class User(Base):
@@ -47,6 +50,7 @@ class AthleteProgress(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
     belt: Mapped[str] = mapped_column(String(16), default=Belt.WHITE.value)
     stripes: Mapped[int] = mapped_column(Integer, default=0)
+    competitor: Mapped[bool] = mapped_column(Integer, default=False, server_default="0")
     total_sessions: Mapped[int] = mapped_column(Integer, default=0)
     last_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 

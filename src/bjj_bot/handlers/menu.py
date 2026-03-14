@@ -7,7 +7,7 @@ from aiogram import F, Router
 from aiogram.enums import MessageEntityType
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, ErrorEvent, Message
+from aiogram.types import CallbackQuery, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -49,7 +49,7 @@ from bjj_bot.states import (
     MoveSearchFlow,
     RankEmojiCaptureFlow,
 )
-from bjj_bot.visuals import build_rank_text, get_rank_visual, rank_key
+from bjj_bot.visuals import belt_emoji_for, build_rank_text, get_rank_visual, get_sticker_id, rank_key
 from bjj_bot.models import ArsenalMove, Belt, Promotion
 
 
@@ -169,12 +169,14 @@ async def _send_me_info(
         )
         promotions = [(row[0], row[1], row[2]) for row in promotion_rows.all()]
 
+    is_black = progress.belt == Belt.BLACK.value
     visual = get_rank_visual(
         progress.belt,
         progress.stripes,
         settings.rank_stickers,
         settings.belt_emojis,
         settings.rank_custom_emojis,
+        competitor=progress.competitor,
     )
     if visual.sticker_id:
         await message.answer_sticker(visual.sticker_id)
@@ -189,6 +191,7 @@ async def _send_me_info(
     text = "\n".join(
         [
             f"Current level: {visual.text}",
+            "",
             f"You are doing BJJ for {_format_duration(started_on, today)}",
             f"Total sessions: {progress.total_sessions}",
             f"Sessions in last 30 days: {sessions_last_30}",
@@ -197,10 +200,15 @@ async def _send_me_info(
             *progress_lines,
         ]
     )
+    keyboard = me_menu_keyboard(
+        belt_emoji=belt_emoji_for(progress.belt, settings.belt_emojis),
+        is_black_belt=is_black,
+        competitor=progress.competitor,
+    )
     if edit:
-        await message.edit_text(text, reply_markup=me_menu_keyboard())
+        await message.edit_text(text, reply_markup=keyboard)
     else:
-        await message.answer(text, reply_markup=me_menu_keyboard())
+        await message.answer(text, reply_markup=keyboard)
 
 
 async def _show_session_history_page(
@@ -296,11 +304,11 @@ async def _show_log_session_menu(message: Message, settings: Settings) -> None:
 
 
 async def _show_home_menu(message: Message) -> None:
-    await message.edit_text("Menu", reply_markup=main_menu_actions_keyboard())
+    await message.edit_text("🏠 Menu", reply_markup=main_menu_actions_keyboard())
 
 
 async def _send_home_menu(message: Message) -> None:
-    await message.answer("Menu", reply_markup=main_menu_actions_keyboard())
+    await message.answer("🏠 Menu", reply_markup=main_menu_actions_keyboard())
 
 
 async def _show_move_details_message(
@@ -403,9 +411,25 @@ async def menu_home_callback(callback: CallbackQuery, state: FSMContext) -> None
 
 
 @router.callback_query(F.data == "menu:me")
-async def menu_me_callback(callback: CallbackQuery, state: FSMContext) -> None:
+async def menu_me_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+    settings: Settings,
+) -> None:
     await state.clear()
-    await callback.message.edit_text("🥷 Me", reply_markup=me_menu_keyboard())
+    async with session_maker() as session:
+        user = await user_service.ensure_user(session, callback.from_user)
+        progress = await user_service.get_progress(session, user.id)
+    is_black = progress.belt == Belt.BLACK.value
+    await callback.message.edit_text(
+        "🥷 Me",
+        reply_markup=me_menu_keyboard(
+            belt_emoji=belt_emoji_for(progress.belt, settings.belt_emojis),
+            is_black_belt=is_black,
+            competitor=progress.competitor,
+        ),
+    )
     await callback.answer()
 
 
@@ -638,6 +662,29 @@ async def me_info_callback(
     await callback.answer()
 
 
+@router.callback_query(F.data == "me:show_belt")
+async def show_belt_callback(
+    callback: CallbackQuery,
+    session_maker: async_sessionmaker[AsyncSession],
+    settings: Settings,
+) -> None:
+    async with session_maker() as session:
+        user = await user_service.ensure_user(session, callback.from_user)
+        progress = await user_service.get_progress(session, user.id)
+    sticker_id = get_sticker_id(
+        progress.belt,
+        progress.stripes,
+        settings.rank_stickers,
+        competitor=progress.competitor,
+    )
+    if sticker_id:
+        await callback.message.answer_sticker(sticker_id)
+    else:
+        await callback.answer("No sticker for this belt", show_alert=True)
+        return
+    await callback.answer()
+
+
 @router.message(F.text == "Upgrade")
 async def upgrade_menu(message: Message, session_maker: async_sessionmaker[AsyncSession], settings: Settings) -> None:
     async with session_maker() as session:
@@ -691,6 +738,19 @@ async def apply_upgrade(
     _, _, raw_rank = callback.data.split(":", 2)
     belt, raw_stripes = raw_rank.split(":", 1)
     stripes = int(raw_stripes)
+
+    # When upgrading to a black belt rank, ask competitor/non-competitor first
+    if belt == Belt.BLACK.value:
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🥋 Regular", callback_data=f"upgrade:comp:0:{belt}:{stripes}")],
+                [InlineKeyboardButton(text="🏆 Competitor", callback_data=f"upgrade:comp:1:{belt}:{stripes}")],
+            ]
+        )
+        await callback.message.edit_text("Which type of black belt?", reply_markup=keyboard)
+        await callback.answer()
+        return
+
     async with session_maker() as session:
         user = await user_service.ensure_user(session, callback.from_user)
         try:
@@ -711,12 +771,96 @@ async def apply_upgrade(
         settings.rank_stickers,
         settings.belt_emojis,
         settings.rank_custom_emojis,
+        competitor=progress.competitor,
     )
-    if visual.sticker_id:
-        await callback.message.answer_sticker(visual.sticker_id)
+    sticker_id = get_sticker_id(progress.belt, progress.stripes, settings.rank_stickers, competitor=progress.competitor)
+    if sticker_id:
+        await callback.message.answer_sticker(sticker_id)
     await callback.message.answer(
         f"👏 Congrats\n{visual.text}\nLogged on {_history_date(promotion.promotion_date)}",
         reply_markup=me_menu_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("upgrade:comp:"))
+async def apply_upgrade_with_competitor(
+    callback: CallbackQuery,
+    session_maker: async_sessionmaker[AsyncSession],
+    settings: Settings,
+) -> None:
+    # upgrade:comp:{0|1}:{belt}:{stripes}
+    parts = callback.data.split(":")
+    competitor = parts[2] == "1"
+    belt = parts[3]
+    stripes = int(parts[4])
+
+    async with session_maker() as session:
+        user = await user_service.ensure_user(session, callback.from_user)
+        try:
+            promotion = await promotion_service.set_promotion_rank(
+                session,
+                user_id=user.id,
+                promotion_date=_today(settings),
+                belt=belt,
+                stripes=stripes,
+            )
+        except ValueError as exc:
+            await callback.answer(str(exc), show_alert=True)
+            return
+        await user_service.set_competitor(session, user.id, competitor)
+        progress = await user_service.get_progress(session, user.id)
+    visual = get_rank_visual(
+        progress.belt,
+        progress.stripes,
+        settings.rank_stickers,
+        settings.belt_emojis,
+        settings.rank_custom_emojis,
+        competitor=progress.competitor,
+    )
+    sticker_id = get_sticker_id(progress.belt, progress.stripes, settings.rank_stickers, competitor=progress.competitor)
+    if sticker_id:
+        await callback.message.answer_sticker(sticker_id)
+    is_black = progress.belt == Belt.BLACK.value
+    await callback.message.answer(
+        f"👏 Congrats\n{visual.text}\nLogged on {_history_date(promotion.promotion_date)}",
+        reply_markup=me_menu_keyboard(
+            belt_emoji=belt_emoji_for(progress.belt, settings.belt_emojis),
+            is_black_belt=is_black,
+            competitor=progress.competitor,
+        ),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "me:toggle_competitor")
+async def toggle_competitor_callback(
+    callback: CallbackQuery,
+    session_maker: async_sessionmaker[AsyncSession],
+    settings: Settings,
+) -> None:
+    async with session_maker() as session:
+        user = await user_service.ensure_user(session, callback.from_user)
+        progress = await user_service.get_progress(session, user.id)
+        new_value = not progress.competitor
+        await user_service.set_competitor(session, user.id, new_value)
+        progress = await user_service.get_progress(session, user.id)
+    visual = get_rank_visual(
+        progress.belt,
+        progress.stripes,
+        settings.rank_stickers,
+        settings.belt_emojis,
+        settings.rank_custom_emojis,
+        competitor=progress.competitor,
+    )
+    label = "Competitor" if progress.competitor else "Regular"
+    await callback.message.edit_text(
+        f"Belt type: {label}\n{visual.text}",
+        reply_markup=me_menu_keyboard(
+            belt_emoji=belt_emoji_for(progress.belt, settings.belt_emojis),
+            is_black_belt=True,
+            competitor=progress.competitor,
+        ),
     )
     await callback.answer()
 

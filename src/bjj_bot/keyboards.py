@@ -45,16 +45,19 @@ def main_menu_actions_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def me_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="ℹ️ Info", callback_data="me:info")],
-            [InlineKeyboardButton(text="⬆️ Upgrade", callback_data="me:upgrade")],
-            [InlineKeyboardButton(text="🗓️ Session History", callback_data="me:sessions")],
-            [InlineKeyboardButton(text="🧾 Upgrade History", callback_data="me:upgrades")],
-            _navigation_row("menu:home"),
-        ]
-    )
+def me_menu_keyboard(*, belt_emoji: str = "🥋", is_black_belt: bool = False, competitor: bool = False) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [InlineKeyboardButton(text="ℹ️ Info", callback_data="me:info")],
+        [InlineKeyboardButton(text=f"{belt_emoji} Show Belt", callback_data="me:show_belt")],
+        [InlineKeyboardButton(text="⬆️ Upgrade", callback_data="me:upgrade")],
+        [InlineKeyboardButton(text="🗓️ Session History", callback_data="me:sessions")],
+        [InlineKeyboardButton(text="📈 Upgrade History", callback_data="me:upgrades")],
+    ]
+    if is_black_belt:
+        label = "🏆 Competitor belt ✓" if competitor else "🏆 Competitor belt"
+        rows.append([InlineKeyboardButton(text=label, callback_data="me:toggle_competitor")])
+    rows.append(_navigation_row("menu:home"))
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def arsenal_menu_keyboard() -> InlineKeyboardMarkup:

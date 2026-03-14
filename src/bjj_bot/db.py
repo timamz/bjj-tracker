@@ -17,12 +17,20 @@ def create_session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession
     return async_sessionmaker(engine, expire_on_commit=False)
 
 
+async def _add_column_if_missing(connection, table: str, column: str, col_type: str, default: str) -> None:
+    result = await connection.execute(text(f"PRAGMA table_info({table})"))
+    columns = {row[1] for row in result}
+    if column not in columns:
+        await connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type} DEFAULT {default}"))
+
+
 async def init_db(engine: AsyncEngine, db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
         await connection.execute(text("PRAGMA journal_mode=WAL"))
         await connection.execute(text("PRAGMA synchronous=NORMAL"))
+        await _add_column_if_missing(connection, "athlete_progress", "competitor", "INTEGER", "0")
 
     session_maker = create_session_maker(engine)
     async with session_maker() as session:

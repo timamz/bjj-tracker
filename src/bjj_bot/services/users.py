@@ -39,3 +39,11 @@ async def get_progress(session: AsyncSession, user_id: int) -> AthleteProgress:
         await session.refresh(progress)
     return progress
 
+
+async def set_competitor(session: AsyncSession, user_id: int, competitor: bool) -> AthleteProgress:
+    progress = await get_progress(session, user_id)
+    progress.competitor = competitor
+    await session.commit()
+    await session.refresh(progress)
+    return progress
+

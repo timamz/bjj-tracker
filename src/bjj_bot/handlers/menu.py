@@ -135,7 +135,7 @@ def _format_rank_history_lines(
     def _cumulative_minutes(as_of: date) -> int:
         if not session_durations:
             return 0
-        return sum(m or 0 for d, m in session_durations if d <= as_of)
+        return sum(m or 0 for d, m in session_durations if d < as_of)
 
     lines = [
         f"{_history_date(start_date)}, after {_format_mat_hours(_cumulative_minutes(start_date))} hours on the mat "
@@ -150,13 +150,29 @@ def _format_rank_history_lines(
     return lines
 
 
+_BELT_PLAIN_NAMES: dict[str, str] = {
+    "white": "White belt",
+    "blue": "Blue belt",
+    "purple": "Purple belt",
+    "brown": "Brown belt",
+    "black": "Black belt",
+    "coral": "Coral belt",
+    "red_white": "Red & White belt",
+    "red": "Red belt",
+}
+
+
 def _upgrade_option_label(
     belt: str,
     stripes: int,
     belt_emoji_map: dict[str, str],
     rank_custom_emoji_map: dict[str, str] | None = None,
 ) -> str:
-    return build_rank_text(belt, stripes, belt_emoji_map, rank_custom_emoji_map)
+    base = _BELT_PLAIN_NAMES.get(belt, belt.replace("_", " ").title())
+    if stripes == 0:
+        return base
+    stripe_word = "stripe" if stripes == 1 else "stripes"
+    return f"{base}, {stripes} {stripe_word}"
 
 
 async def _send_me_info(

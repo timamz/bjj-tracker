@@ -35,6 +35,15 @@ def prompt_keyboard(*, back_callback: str | None = None) -> InlineKeyboardMarkup
     return InlineKeyboardMarkup(inline_keyboard=[_navigation_row(back_callback)])
 
 
+def admin_panel_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Refresh", callback_data="admin:refresh")],
+            [InlineKeyboardButton(text="🏠 Open Menu", callback_data="menu:home")],
+        ]
+    )
+
+
 def main_menu_actions_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[

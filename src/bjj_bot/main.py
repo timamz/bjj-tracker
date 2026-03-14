@@ -10,6 +10,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from bjj_bot.config import Settings
 from bjj_bot.db import create_engine, create_session_maker, init_db
+from bjj_bot.handlers.admin import router as admin_router
 from bjj_bot.handlers.menu import router
 
 
@@ -22,6 +23,7 @@ async def main() -> None:
 
     bot = Bot(token=settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dispatcher = Dispatcher(storage=MemoryStorage())
+    dispatcher.include_router(admin_router)
     dispatcher.include_router(router)
     dispatcher["session_maker"] = session_maker
     dispatcher["settings"] = settings

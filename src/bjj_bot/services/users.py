@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bjj_bot.models import AthleteProgress, Belt, User
 
 
-async def ensure_user(session: AsyncSession, telegram_user: TelegramUser) -> User:
+async def ensure_user(session: AsyncSession, telegram_user: TelegramUser) -> tuple[User, bool]:
     user = await session.scalar(select(User).where(User.telegram_id == telegram_user.id))
     if user is None:
         user = User(
@@ -21,13 +21,13 @@ async def ensure_user(session: AsyncSession, telegram_user: TelegramUser) -> Use
         session.add(AthleteProgress(user_id=user.id, belt=Belt.WHITE.value, stripes=0, total_sessions=0))
         await session.commit()
         await session.refresh(user)
-        return user
+        return user, True
 
     user.username = telegram_user.username
     user.first_name = telegram_user.first_name
     user.last_name = telegram_user.last_name
     await session.commit()
-    return user
+    return user, False
 
 
 async def get_progress(session: AsyncSession, user_id: int) -> AthleteProgress:

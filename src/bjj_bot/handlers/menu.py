@@ -148,7 +148,7 @@ async def _send_me_info(
 ) -> None:
     today = _today(settings)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, telegram_user)
+        user, _ = await user_service.ensure_user(session, telegram_user)
         progress = await user_service.get_progress(session, user.id)
         first_logged_date = await session_service.first_session_date(session, user_id=user.id)
         sessions_last_30 = await session_service.count_sessions_since(
@@ -216,7 +216,7 @@ async def _show_session_history_page(
     edit: bool = True,
 ) -> bool:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, telegram_user)
+        user, _ = await user_service.ensure_user(session, telegram_user)
         items = await history_service.get_session_history(session, user_id=user.id, offset=offset, limit=10)
         has_next = len(await history_service.get_session_history(session, user_id=user.id, offset=offset + 10, limit=1)) > 0
     if not items:
@@ -247,7 +247,7 @@ async def _show_upgrade_history_page(
     edit: bool = True,
 ) -> bool:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, telegram_user)
+        user, _ = await user_service.ensure_user(session, telegram_user)
         items = await history_service.get_promotion_history(
             session,
             user_id=user.id,
@@ -340,7 +340,7 @@ async def _show_promotion_details_message(
     edit: bool = True,
 ) -> bool:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, telegram_user)
+        user, _ = await user_service.ensure_user(session, telegram_user)
         promotion = await promotion_service.get_promotion(session, user_id=user.id, promotion_id=promotion_id)
     if promotion is None:
         return False
@@ -362,8 +362,23 @@ async def _show_promotion_details_message(
 async def menu_router(
     message: Message,
     state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+    settings: Settings,
 ) -> None:
     await state.clear()
+    async with session_maker() as session:
+        _, is_new = await user_service.ensure_user(session, message.from_user)
+    if is_new and settings.owner_id:
+        try:
+            u = message.from_user
+            name = u.full_name or u.username or str(u.id)
+            username_part = f" (@{u.username})" if u.username else ""
+            await message.bot.send_message(
+                settings.owner_id,
+                f"👤 New user: {name}{username_part} (id={u.id})",
+            )
+        except Exception:
+            pass
     await _send_home_menu(message)
 
 
@@ -415,7 +430,7 @@ async def menu_me_callback(
 ) -> None:
     await state.clear()
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         progress = await user_service.get_progress(session, user.id)
     is_black = progress.belt == Belt.BLACK.value
     await callback.message.edit_text(
@@ -453,7 +468,7 @@ async def _start_session_move_picker(
     message: Message | None = None,
 ) -> None:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, telegram_user)
+        user, _ = await user_service.ensure_user(session, telegram_user)
     await state.update_data(session_date=raw_date, selected_move_ids=[], session_user_id=user.id)
     if callback is not None:
         await _render_session_picker(callback, session_maker, user.id, state)
@@ -568,7 +583,7 @@ async def _build_move_details(
     move_id: int,
 ) -> tuple[str, int] | None:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, telegram_user)
+        user, _ = await user_service.ensure_user(session, telegram_user)
         move = await arsenal_service.get_move(session, user.id, move_id)
         if move is None:
             return None
@@ -583,7 +598,7 @@ async def _build_session_details(
     session_id: int,
 ) -> tuple[str, int] | None:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, telegram_user)
+        user, _ = await user_service.ensure_user(session, telegram_user)
         training_session = await session_service.get_session(session, user_id=user.id, session_id=session_id)
         if training_session is None:
             return None
@@ -618,7 +633,7 @@ async def _show_recent_moves(
     edit: bool = True,
 ) -> bool:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, telegram_user)
+        user, _ = await user_service.ensure_user(session, telegram_user)
         moves = await arsenal_service.list_recent_moves(session, user.id)
     if not moves:
         return False
@@ -667,7 +682,7 @@ async def show_belt_callback(
     settings: Settings,
 ) -> None:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         progress = await user_service.get_progress(session, user.id)
     sticker_id = get_sticker_id(
         progress.belt,
@@ -686,7 +701,7 @@ async def show_belt_callback(
 @router.message(F.text == "Upgrade")
 async def upgrade_menu(message: Message, session_maker: async_sessionmaker[AsyncSession], settings: Settings) -> None:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         progress = await user_service.get_progress(session, user.id)
     current = rank_service.RankState(belt=progress.belt, stripes=progress.stripes)
     options = [
@@ -709,7 +724,7 @@ async def upgrade_menu_callback(
     settings: Settings,
 ) -> None:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         progress = await user_service.get_progress(session, user.id)
     current = rank_service.RankState(belt=progress.belt, stripes=progress.stripes)
     options = [
@@ -750,7 +765,7 @@ async def apply_upgrade(
         return
 
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         try:
             promotion = await promotion_service.set_promotion_rank(
                 session,
@@ -794,7 +809,7 @@ async def apply_upgrade_with_competitor(
     stripes = int(parts[4])
 
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         try:
             promotion = await promotion_service.set_promotion_rank(
                 session,
@@ -838,7 +853,7 @@ async def toggle_competitor_callback(
     settings: Settings,
 ) -> None:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         progress = await user_service.get_progress(session, user.id)
         new_value = not progress.competitor
         await user_service.set_competitor(session, user.id, new_value)
@@ -980,7 +995,7 @@ async def promotion_set_rank(
     promotion_id = int(raw_id)
     stripes = int(raw_stripes)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         try:
             updated = await promotion_service.update_promotion(
                 session,
@@ -1047,7 +1062,7 @@ async def promotion_date_submit(
         return
 
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         updated = await promotion_service.update_promotion(
             session,
             user_id=user.id,
@@ -1090,7 +1105,7 @@ async def promotion_delete_confirm(
     _, _, raw_id = callback.data.split(":", 2)
     promotion_id = int(raw_id)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         deleted = await promotion_service.delete_promotion(session, user_id=user.id, promotion_id=promotion_id)
     await state.clear()
     if not deleted:
@@ -1364,7 +1379,7 @@ async def save_logged_session_date(
         await message.answer("Session not found", reply_markup=prompt_keyboard(back_callback="me:sessions"))
         return
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         updated = await session_service.update_session(
             session,
             user_id=user.id,
@@ -1396,7 +1411,7 @@ async def edit_logged_session_moves(
     _, _, raw_id = callback.data.split(":", 2)
     session_id = int(raw_id)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         training_session = await session_service.get_session(session, user_id=user.id, session_id=session_id)
         if training_session is None:
             await callback.answer("Session not found", show_alert=True)
@@ -1433,7 +1448,7 @@ async def delete_logged_session_confirm(
     _, _, raw_id = callback.data.split(":", 2)
     session_id = int(raw_id)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         deleted = await session_service.delete_session(session, user_id=user.id, session_id=session_id)
         progress = await user_service.get_progress(session, user.id)
     await state.clear()
@@ -1451,7 +1466,7 @@ async def delete_logged_session_confirm(
 @router.message(F.text == "Library")
 async def arsenal_browse_groups(message: Message, session_maker: async_sessionmaker[AsyncSession]) -> None:
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         categories = await arsenal_service.list_child_categories(session, None, user_id=user.id)
     await message.answer(
         "📚 Library",
@@ -1505,7 +1520,7 @@ async def add_move_name(message: Message, state: FSMContext, session_maker: asyn
         )
         return
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         categories = await arsenal_service.list_child_categories(session, None, user_id=user.id)
     await state.set_state(AddMoveFlow.waiting_for_category)
     root_back = "session:return_to_picker" if data.get("add_move_origin") == "session" else "arsenal:home"
@@ -1530,7 +1545,7 @@ async def pick_category_open(
 ) -> None:
     _, _, code = callback.data.split(":", 2)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         categories = await arsenal_service.list_child_categories(session, code, user_id=user.id)
         category = await arsenal_service.get_category(session, code)
     await state.set_state(AddMoveFlow.waiting_for_category)
@@ -1558,7 +1573,7 @@ async def pick_category_back(
 ) -> None:
     _, _, code = callback.data.split(":", 2)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         category = await arsenal_service.get_category(session, code)
         parent_code = category.parent_code if category else None
         categories = await arsenal_service.list_child_categories(session, parent_code, user_id=user.id)
@@ -1615,7 +1630,7 @@ async def finalize_move_creation(
     tags = [] if raw_tags.lower() == "skip" else arsenal_service.normalize_tags(raw_tags)
     data = await state.get_data()
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         move = await arsenal_service.create_move(
             session,
             user_id=user.id,
@@ -1677,7 +1692,7 @@ async def arsenal_search_query(
         await message.answer("Send a move name", reply_markup=prompt_keyboard(back_callback="arsenal:home"))
         return
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         moves = await arsenal_service.search_moves(session, user.id, query)
     await state.clear()
     if not moves:
@@ -1699,7 +1714,7 @@ async def browse_arsenal(
     parts = callback.data.split(":")
     category_code = None if parts[-1] == "root" else parts[-1]
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
     await _render_arsenal_browser(callback, session_maker, user.id, category_code)
 
 
@@ -1714,7 +1729,7 @@ async def browse_arsenal_back(
     async with session_maker() as session:
         category = await arsenal_service.get_category(session, code)
         parent_code = category.parent_code if category else None
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
     await _render_arsenal_browser(callback, session_maker, user.id, parent_code)
 
 
@@ -1810,7 +1825,7 @@ async def start_move_group_edit(
     await state.update_data(edit_move_id=move_id)
     await state.set_state(EditMoveFlow.waiting_for_category)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         categories = await arsenal_service.list_child_categories(session, None, user_id=user.id)
     await callback.message.edit_text(
         "🗂️ Pick a new group",
@@ -1834,7 +1849,7 @@ async def move_group_open(
 ) -> None:
     _, _, code = callback.data.split(":", 2)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         categories = await arsenal_service.list_child_categories(session, code, user_id=user.id)
         category = await arsenal_service.get_category(session, code)
     move_id = (await state.get_data()).get("edit_move_id")
@@ -1860,7 +1875,7 @@ async def move_group_back(
 ) -> None:
     _, _, code = callback.data.split(":", 2)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         category = await arsenal_service.get_category(session, code)
         parent_code = category.parent_code if category else None
         categories = await arsenal_service.list_child_categories(session, parent_code, user_id=user.id)
@@ -1894,7 +1909,7 @@ async def move_group_select(
         await callback.answer()
         return
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         move = await arsenal_service.update_move(
             session,
             user_id=user.id,
@@ -1937,7 +1952,7 @@ async def delete_move_confirm(
     _, _, raw_id = callback.data.split(":", 2)
     move_id = int(raw_id)
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         deleted = await arsenal_service.delete_move(session, user_id=user.id, move_id=move_id)
     await state.clear()
     if not deleted:
@@ -1990,7 +2005,7 @@ async def save_move_name_edit(
         return
     data = await state.get_data()
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         move = await arsenal_service.update_move(
             session,
             user_id=user.id,
@@ -2023,7 +2038,7 @@ async def save_move_tags_edit(
     tags = [] if raw_tags.lower() == "skip" else arsenal_service.normalize_tags(raw_tags)
     data = await state.get_data()
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         move = await arsenal_service.update_move(
             session,
             user_id=user.id,
@@ -2054,7 +2069,7 @@ async def save_move_note_edit(
 ) -> None:
     data = await state.get_data()
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         move = await arsenal_service.update_move(
             session,
             user_id=user.id,
@@ -2115,7 +2130,7 @@ async def libcat_edit_callback(
 ) -> None:
     _, _, slug = callback.data.split(":", 2)
     async with session_maker() as session:
-        u = await user_service.ensure_user(session, callback.from_user)
+        u, _ = await user_service.ensure_user(session, callback.from_user)
     await state.clear()
     await _render_libcat_edit(callback.message, session_maker, u.id, slug)
     await callback.answer()
@@ -2156,7 +2171,7 @@ async def libcat_add_name(
     parent_slug = data.get("libcat_parent_slug", "root")
     parent_code = None if parent_slug == "root" else parent_slug
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, message.from_user)
         await arsenal_service.create_category(session, name=name, parent_code=parent_code)
         categories = await arsenal_service.list_child_categories(session, parent_code, user_id=user.id)
         if parent_code:
@@ -2208,7 +2223,7 @@ async def libcat_delete_confirm(
     data = await state.get_data()
     parent_slug = data.get("libcat_delete_parent_slug", "root")
     async with session_maker() as session:
-        user = await user_service.ensure_user(session, callback.from_user)
+        user, _ = await user_service.ensure_user(session, callback.from_user)
         await arsenal_service.delete_category(session, code)
     await state.clear()
     await _render_libcat_edit(callback.message, session_maker, user.id, parent_slug)

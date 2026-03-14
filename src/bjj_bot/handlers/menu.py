@@ -49,6 +49,7 @@ from bjj_bot.states import (
     EditPromotionFlow,
     EditSessionFlow,
     LibCatFlow,
+    LogSessionFlow,
     MoveSearchFlow,
     RankEmojiCaptureFlow,
 )
@@ -116,16 +117,36 @@ def _format_duration(start_date: date, end_date: date) -> str:
     return f"{years} {year_label}, {months} {month_label}, {days} {day_label}"
 
 
+def _format_mat_hours(total_minutes: int) -> str:
+    if total_minutes == 0:
+        return "0"
+    hours = round(total_minutes / 60, 2)
+    return f"{hours:g}"
+
+
 def _format_rank_history_lines(
     *,
     start_date: date,
     promotions: list[tuple[date, str, int]],
     belt_emoji_map: dict[str, str],
     rank_custom_emoji_map: dict[str, str] | None = None,
+    session_durations: list[tuple[date, int | None]] | None = None,
 ) -> list[str]:
-    lines = [f"{_history_date(start_date)} {build_rank_text(Belt.WHITE.value, 0, belt_emoji_map, rank_custom_emoji_map)}"]
+    def _cumulative_minutes(as_of: date) -> int:
+        if not session_durations:
+            return 0
+        return sum(m or 0 for d, m in session_durations if d <= as_of)
+
+    lines = [
+        f"{_history_date(start_date)}, after {_format_mat_hours(_cumulative_minutes(start_date))} hours on the mat "
+        f"{build_rank_text(Belt.WHITE.value, 0, belt_emoji_map, rank_custom_emoji_map)}"
+    ]
     for promotion_date, belt, stripes in promotions:
-        lines.append(f"{_history_date(promotion_date)} {build_rank_text(belt, stripes, belt_emoji_map, rank_custom_emoji_map)}")
+        hours = _format_mat_hours(_cumulative_minutes(promotion_date))
+        lines.append(
+            f"{_history_date(promotion_date)}, after {hours} hours on the mat "
+            f"{build_rank_text(belt, stripes, belt_emoji_map, rank_custom_emoji_map)}"
+        )
     return lines
 
 
@@ -163,6 +184,11 @@ async def _send_me_info(
         )
         promotions = [(row[0], row[1], row[2]) for row in promotion_rows.all()]
         total_moves = await arsenal_service.count_total_moves(session, user.id)
+        total_mat_minutes = await session_service.sum_duration_minutes(session, user_id=user.id)
+        mat_minutes_last_30 = await session_service.sum_duration_minutes_since(
+            session, user_id=user.id, since_date=today - timedelta(days=29)
+        )
+        session_durations = await session_service.get_session_durations(session, user_id=user.id)
 
     is_black = progress.belt == Belt.BLACK.value
     visual = get_rank_visual(
@@ -182,6 +208,7 @@ async def _send_me_info(
         promotions=promotions,
         belt_emoji_map=settings.belt_emojis,
         rank_custom_emoji_map=settings.rank_custom_emojis,
+        session_durations=session_durations,
     )
     text = "\n".join(
         [
@@ -189,8 +216,11 @@ async def _send_me_info(
             "",
             f"You are doing BJJ for {_format_duration(started_on, today)}",
             f"Total sessions: {progress.total_sessions}",
-            f"Sessions in last 30 days: {sessions_last_30}",
+            f"Total hours on the mat: {_format_mat_hours(total_mat_minutes)}",
             f"Techniques in arsenal: {total_moves}",
+            "",
+            f"Sessions in last 30 days: {sessions_last_30}",
+            f"Hours on the mat in the last 30 days: {_format_mat_hours(mat_minutes_last_30)}",
             "",
             "Progress history:",
             *progress_lines,
@@ -608,10 +638,10 @@ async def _build_session_details(
             query = await session.execute(select(ArsenalMove.name).where(ArsenalMove.id.in_(move_ids)))
             moves = [row[0] for row in query.all()]
     move_label = "move" if len(move_ids) == 1 else "moves"
-    text_lines = [
-        f"{_history_date(training_session.session_date)}",
-        f"Practiced {len(move_ids)} {move_label}",
-    ]
+    text_lines = [f"{_history_date(training_session.session_date)}"]
+    if training_session.duration_minutes:
+        text_lines.append(f"Duration: {_format_mat_hours(training_session.duration_minutes)} hours")
+    text_lines.append(f"Practiced {len(move_ids)} {move_label}")
     if moves:
         text_lines.extend(f"- {move_name}" for move_name in moves)
     text = "\n".join(text_lines)
@@ -1274,8 +1304,35 @@ async def session_add_move(callback: CallbackQuery, state: FSMContext) -> None:
 async def session_save(
     callback: CallbackQuery,
     state: FSMContext,
+) -> None:
+    await state.set_state(LogSessionFlow.waiting_for_duration)
+    await callback.message.edit_text(
+        "⏱️ How many minutes was the session? (send a number or skip)",
+        reply_markup=prompt_keyboard(back_callback="session:return_to_picker"),
+    )
+    await callback.answer()
+
+
+@router.message(LogSessionFlow.waiting_for_duration)
+async def session_save_with_duration(
+    message: Message,
+    state: FSMContext,
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
+    raw = (message.text or "").strip().lower()
+    duration_minutes: int | None = None
+    if raw != "skip" and raw:
+        try:
+            parsed = int(raw)
+            if parsed > 0:
+                duration_minutes = parsed
+        except ValueError:
+            await message.answer(
+                "Send a whole number of minutes (e.g. 90) or skip",
+                reply_markup=prompt_keyboard(back_callback="session:return_to_picker"),
+            )
+            return
+
     data = await state.get_data()
     async with session_maker() as session:
         if data.get("edit_session_id") is not None:
@@ -1285,11 +1342,12 @@ async def session_save(
                 session_id=data["edit_session_id"],
                 session_date=date.fromisoformat(data["session_date"]),
                 move_ids=data.get("selected_move_ids", []),
+                duration_minutes=duration_minutes,
+                clear_duration=duration_minutes is None,
             )
             if training_session is None:
                 await state.clear()
-                await callback.message.edit_text("Session not found", reply_markup=prompt_keyboard(back_callback="menu:log_session"))
-                await callback.answer()
+                await message.answer("Session not found", reply_markup=prompt_keyboard(back_callback="menu:log_session"))
                 return
         else:
             training_session = await session_service.log_session(
@@ -1297,16 +1355,18 @@ async def session_save(
                 user_id=data["session_user_id"],
                 session_date=date.fromisoformat(data["session_date"]),
                 move_ids=data.get("selected_move_ids", []),
+                duration_minutes=duration_minutes,
             )
         move_count = await session_service.count_practiced_moves(session, training_session.id)
         progress = await user_service.get_progress(session, data["session_user_id"])
     await state.clear()
     move_label = "move" if move_count == 1 else "moves"
-    await callback.message.edit_text(
-        f"{'Updated' if data.get('edit_session_id') is not None else 'Logged'} {_history_date(training_session.session_date)}\nTotal sessions: {progress.total_sessions}\nPracticed {move_count} {move_label}",
+    duration_line = f"\n{_format_mat_hours(duration_minutes)} hours on the mat" if duration_minutes else ""
+    label = "Updated" if data.get("edit_session_id") is not None else "Logged"
+    await message.answer(
+        f"{label} {_history_date(training_session.session_date)}\nTotal sessions: {progress.total_sessions}{duration_line}\nPracticed {move_count} {move_label}",
         reply_markup=session_saved_keyboard(training_session.id),
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("history:"))
@@ -1341,6 +1401,75 @@ async def view_logged_session(callback: CallbackQuery, state: FSMContext, sessio
     text, resolved_session_id = payload
     await callback.message.edit_text(text, reply_markup=session_details_keyboard(resolved_session_id))
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("logged_session:duration:"))
+async def edit_logged_session_duration(callback: CallbackQuery, state: FSMContext) -> None:
+    _, _, raw_id = callback.data.split(":", 2)
+    session_id = int(raw_id)
+    await state.update_data(edit_duration_session_id=session_id)
+    await state.set_state(EditSessionFlow.waiting_for_duration)
+    await callback.message.edit_text(
+        "⏱️ How many minutes was the session? (send a number or skip to clear)",
+        reply_markup=prompt_keyboard(back_callback=f"logged_session:view:{session_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(EditSessionFlow.waiting_for_duration)
+async def save_logged_session_duration(
+    message: Message,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    raw = (message.text or "").strip().lower()
+    duration_minutes: int | None = None
+    clear = False
+    if raw == "skip":
+        clear = True
+    elif raw:
+        try:
+            parsed = int(raw)
+            if parsed > 0:
+                duration_minutes = parsed
+            else:
+                raise ValueError
+        except ValueError:
+            session_id = (await state.get_data()).get("edit_duration_session_id")
+            await message.answer(
+                "Send a whole number of minutes (e.g. 90) or skip to clear",
+                reply_markup=prompt_keyboard(back_callback=f"logged_session:view:{session_id}" if session_id else "me:sessions"),
+            )
+            return
+    data = await state.get_data()
+    session_id = data.get("edit_duration_session_id")
+    if session_id is None:
+        await state.clear()
+        await message.answer("Session not found", reply_markup=prompt_keyboard(back_callback="me:sessions"))
+        return
+    async with session_maker() as session:
+        user, _ = await user_service.ensure_user(session, message.from_user)
+        training_session = await session_service.update_session(
+            session,
+            user_id=user.id,
+            session_id=session_id,
+            duration_minutes=duration_minutes,
+            clear_duration=clear,
+        )
+    await state.clear()
+    if training_session is None:
+        await message.answer("Session not found", reply_markup=prompt_keyboard(back_callback="me:sessions"))
+        return
+    payload = await _build_session_details(
+        session_maker=session_maker,
+        telegram_user=message.from_user,
+        session_id=session_id,
+    )
+    if payload:
+        text, sid = payload
+        await message.answer(text, reply_markup=session_details_keyboard(sid))
+    else:
+        await message.answer("Session not found", reply_markup=prompt_keyboard(back_callback="me:sessions"))
 
 
 @router.callback_query(F.data.startswith("logged_session:date:"))

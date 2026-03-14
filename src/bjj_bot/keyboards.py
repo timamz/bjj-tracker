@@ -298,6 +298,7 @@ def session_details_keyboard(session_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🗓️ Edit Date", callback_data=f"logged_session:date:{session_id}")],
+            [InlineKeyboardButton(text="⏱️ Edit Duration", callback_data=f"logged_session:duration:{session_id}")],
             [InlineKeyboardButton(text="🥋 Edit Moves", callback_data=f"logged_session:moves:{session_id}")],
             [InlineKeyboardButton(text="🗑️ Delete Session", callback_data=f"logged_session:delete:{session_id}")],
             _navigation_row("me:sessions"),

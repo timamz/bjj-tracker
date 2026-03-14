@@ -19,6 +19,7 @@ async def log_session(
     user_id: int,
     session_date: date,
     move_ids: list[int],
+    duration_minutes: int | None = None,
 ) -> TrainingSession:
     if move_ids:
         result = await session.execute(
@@ -33,7 +34,7 @@ async def log_session(
     if progress is None:
         raise SessionError("Progress not initialized")
 
-    training_session = TrainingSession(user_id=user_id, session_date=session_date)
+    training_session = TrainingSession(user_id=user_id, session_date=session_date, duration_minutes=duration_minutes)
     session.add(training_session)
     await session.flush()
 
@@ -84,6 +85,8 @@ async def update_session(
     session_id: int,
     session_date: date | None = None,
     move_ids: list[int] | None = None,
+    duration_minutes: int | None = None,
+    clear_duration: bool = False,
 ) -> TrainingSession | None:
     training_session = await get_session(session, user_id=user_id, session_id=session_id)
     if training_session is None:
@@ -91,6 +94,11 @@ async def update_session(
 
     if session_date is not None:
         training_session.session_date = session_date
+
+    if clear_duration:
+        training_session.duration_minutes = None
+    elif duration_minutes is not None:
+        training_session.duration_minutes = duration_minutes
 
     if move_ids is not None:
         if move_ids:
@@ -149,3 +157,33 @@ async def count_sessions_since(session: AsyncSession, *, user_id: int, since_dat
         )
         or 0
     )
+
+
+async def sum_duration_minutes(session: AsyncSession, *, user_id: int) -> int:
+    return int(
+        await session.scalar(
+            select(func.sum(TrainingSession.duration_minutes)).where(TrainingSession.user_id == user_id)
+        )
+        or 0
+    )
+
+
+async def sum_duration_minutes_since(session: AsyncSession, *, user_id: int, since_date: date) -> int:
+    return int(
+        await session.scalar(
+            select(func.sum(TrainingSession.duration_minutes)).where(
+                TrainingSession.user_id == user_id,
+                TrainingSession.session_date >= since_date,
+            )
+        )
+        or 0
+    )
+
+
+async def get_session_durations(session: AsyncSession, *, user_id: int) -> list[tuple[date, int | None]]:
+    rows = await session.execute(
+        select(TrainingSession.session_date, TrainingSession.duration_minutes)
+        .where(TrainingSession.user_id == user_id)
+        .order_by(TrainingSession.session_date)
+    )
+    return [(row[0], row[1]) for row in rows.all()]

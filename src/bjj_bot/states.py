@@ -21,6 +21,11 @@ class EditMoveFlow(StatesGroup):
 
 class EditSessionFlow(StatesGroup):
     waiting_for_date = State()
+    waiting_for_duration = State()
+
+
+class LogSessionFlow(StatesGroup):
+    waiting_for_duration = State()
 
 
 class EditPromotionFlow(StatesGroup):

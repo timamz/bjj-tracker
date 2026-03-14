@@ -31,6 +31,7 @@ async def init_db(engine: AsyncEngine, db_path: Path) -> None:
         await connection.execute(text("PRAGMA journal_mode=WAL"))
         await connection.execute(text("PRAGMA synchronous=NORMAL"))
         await _add_column_if_missing(connection, "athlete_progress", "competitor", "INTEGER", "0")
+        await _add_column_if_missing(connection, "training_sessions", "duration_minutes", "INTEGER", "NULL")
 
     session_maker = create_session_maker(engine)
     async with session_maker() as session:

@@ -1492,7 +1492,6 @@ async def save_logged_session_duration(
             user_id=user.id,
             session_id=session_id,
             duration_minutes=duration_minutes,
-            clear_duration=clear,
         )
     await state.clear()
     if training_session is None:

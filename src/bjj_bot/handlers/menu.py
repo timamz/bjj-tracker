@@ -1349,7 +1349,7 @@ async def _commit_session_with_duration(
             )
             if training_session is None:
                 await state.clear()
-                await send_fn("Session not found", prompt_keyboard(back_callback="menu:log_session"))
+                await send_fn("Session not found", reply_markup=prompt_keyboard(back_callback="menu:log_session"))
                 return
         else:
             training_session = await session_service.log_session(
@@ -1367,7 +1367,7 @@ async def _commit_session_with_duration(
     label = "Updated" if data.get("edit_session_id") is not None else "Logged"
     await send_fn(
         f"{label} {_history_date(training_session.session_date)}\nTotal sessions: {progress.total_sessions}{duration_line}\nPracticed {move_count} {move_label}",
-        session_saved_keyboard(training_session.id),
+        reply_markup=session_saved_keyboard(training_session.id),
     )
 
 
@@ -1855,10 +1855,10 @@ async def _do_finalize_add_move(
             state=state,
             category_code=category_code,
         )
-        await send_fn(f"Added {move.name} and selected it\n{label}", keyboard)
+        await send_fn(f"Added {move.name} and selected it\n{label}", reply_markup=keyboard)
         return
     await state.clear()
-    await send_fn(f"Added {move.name}", arsenal_menu_keyboard())
+    await send_fn(f"Added {move.name}", reply_markup=arsenal_menu_keyboard())
 
 
 @router.message(AddMoveFlow.waiting_for_tags)
@@ -1879,7 +1879,7 @@ async def addmove_skip_tags(
 ) -> None:
     await _do_finalize_add_move(
         state, session_maker, callback.from_user, [],
-        lambda text, kb: callback.message.answer(text, reply_markup=kb),
+        lambda text, reply_markup=None: callback.message.answer(text, reply_markup=reply_markup),
     )
     await callback.answer()
 

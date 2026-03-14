@@ -1307,32 +1307,18 @@ async def session_save(
 ) -> None:
     await state.set_state(LogSessionFlow.waiting_for_duration)
     await callback.message.edit_text(
-        "⏱️ How many minutes was the session? (send a number or skip)",
-        reply_markup=prompt_keyboard(back_callback="session:return_to_picker"),
+        "Enter session duration (minutes)",
+        reply_markup=prompt_keyboard(back_callback="session:return_to_picker", skip_callback="session:duration_skip"),
     )
     await callback.answer()
 
 
-@router.message(LogSessionFlow.waiting_for_duration)
-async def session_save_with_duration(
-    message: Message,
+async def _commit_session_with_duration(
     state: FSMContext,
     session_maker: async_sessionmaker[AsyncSession],
+    duration_minutes: int | None,
+    send_fn,
 ) -> None:
-    raw = (message.text or "").strip().lower()
-    duration_minutes: int | None = None
-    if raw != "skip" and raw:
-        try:
-            parsed = int(raw)
-            if parsed > 0:
-                duration_minutes = parsed
-        except ValueError:
-            await message.answer(
-                "Send a whole number of minutes (e.g. 90) or skip",
-                reply_markup=prompt_keyboard(back_callback="session:return_to_picker"),
-            )
-            return
-
     data = await state.get_data()
     async with session_maker() as session:
         if data.get("edit_session_id") is not None:
@@ -1347,7 +1333,7 @@ async def session_save_with_duration(
             )
             if training_session is None:
                 await state.clear()
-                await message.answer("Session not found", reply_markup=prompt_keyboard(back_callback="menu:log_session"))
+                await send_fn("Session not found", prompt_keyboard(back_callback="menu:log_session"))
                 return
         else:
             training_session = await session_service.log_session(
@@ -1363,10 +1349,41 @@ async def session_save_with_duration(
     move_label = "move" if move_count == 1 else "moves"
     duration_line = f"\n{_format_mat_hours(duration_minutes)} hours on the mat" if duration_minutes else ""
     label = "Updated" if data.get("edit_session_id") is not None else "Logged"
-    await message.answer(
+    await send_fn(
         f"{label} {_history_date(training_session.session_date)}\nTotal sessions: {progress.total_sessions}{duration_line}\nPracticed {move_count} {move_label}",
-        reply_markup=session_saved_keyboard(training_session.id),
+        session_saved_keyboard(training_session.id),
     )
+
+
+@router.message(LogSessionFlow.waiting_for_duration)
+async def session_save_with_duration(
+    message: Message,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    raw = (message.text or "").strip()
+    try:
+        parsed = int(raw)
+        if parsed <= 0:
+            raise ValueError
+        duration_minutes: int | None = parsed
+    except ValueError:
+        await message.answer(
+            "Send a whole number of minutes (e.g. 90)",
+            reply_markup=prompt_keyboard(back_callback="session:return_to_picker", skip_callback="session:duration_skip"),
+        )
+        return
+    await _commit_session_with_duration(state, session_maker, duration_minutes, message.answer)
+
+
+@router.callback_query(F.data == "session:duration_skip")
+async def session_duration_skip(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    await _commit_session_with_duration(state, session_maker, None, callback.message.answer)
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("history:"))
@@ -1410,10 +1427,32 @@ async def edit_logged_session_duration(callback: CallbackQuery, state: FSMContex
     await state.update_data(edit_duration_session_id=session_id)
     await state.set_state(EditSessionFlow.waiting_for_duration)
     await callback.message.edit_text(
-        "⏱️ How many minutes was the session? (send a number or skip to clear)",
-        reply_markup=prompt_keyboard(back_callback=f"logged_session:view:{session_id}"),
+        "Enter session duration (minutes)",
+        reply_markup=prompt_keyboard(
+            back_callback=f"logged_session:view:{session_id}",
+            skip_callback=f"logged_session:duration_skip:{session_id}",
+        ),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("logged_session:duration_skip:"))
+async def edit_session_duration_skip(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    _, _, _, raw_id = callback.data.split(":", 3)
+    session_id = int(raw_id)
+    async with session_maker() as session:
+        user, _ = await user_service.ensure_user(session, callback.from_user)
+        await session_service.update_session(session, user_id=user.id, session_id=session_id, clear_duration=True)
+    await state.clear()
+    payload = await _build_session_details(session_maker=session_maker, telegram_user=callback.from_user, session_id=session_id)
+    if payload:
+        text, sid = payload
+        await callback.message.edit_text(text, reply_markup=session_details_keyboard(sid))
+    await callback.answer("Duration cleared")
 
 
 @router.message(EditSessionFlow.waiting_for_duration)
@@ -1422,25 +1461,24 @@ async def save_logged_session_duration(
     state: FSMContext,
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
-    raw = (message.text or "").strip().lower()
+    raw = (message.text or "").strip()
     duration_minutes: int | None = None
-    clear = False
-    if raw == "skip":
-        clear = True
-    elif raw:
-        try:
-            parsed = int(raw)
-            if parsed > 0:
-                duration_minutes = parsed
-            else:
-                raise ValueError
-        except ValueError:
-            session_id = (await state.get_data()).get("edit_duration_session_id")
-            await message.answer(
-                "Send a whole number of minutes (e.g. 90) or skip to clear",
-                reply_markup=prompt_keyboard(back_callback=f"logged_session:view:{session_id}" if session_id else "me:sessions"),
-            )
-            return
+    try:
+        parsed = int(raw)
+        if parsed > 0:
+            duration_minutes = parsed
+        else:
+            raise ValueError
+    except ValueError:
+        session_id = (await state.get_data()).get("edit_duration_session_id")
+        await message.answer(
+            "Send a whole number of minutes (e.g. 90)",
+            reply_markup=prompt_keyboard(
+                back_callback=f"logged_session:view:{session_id}" if session_id else "me:sessions",
+                skip_callback=f"logged_session:duration_skip:{session_id}" if session_id else None,
+            ),
+        )
+        return
     data = await state.get_data()
     session_id = data.get("edit_duration_session_id")
     if session_id is None:
@@ -1644,8 +1682,8 @@ async def add_move_name(message: Message, state: FSMContext, session_maker: asyn
     if data.get("add_move_category"):
         await state.set_state(AddMoveFlow.waiting_for_note)
         await message.answer(
-            "📝 Any note? Send one line or type skip",
-            reply_markup=prompt_keyboard(back_callback=data.get("add_move_prompt_back", "arsenal:home")),
+            "📝 Add a note? (optional)",
+            reply_markup=prompt_keyboard(back_callback=data.get("add_move_prompt_back", "arsenal:home"), skip_callback="addmove:skip_note"),
         )
         return
     async with session_maker() as session:
@@ -1729,37 +1767,49 @@ async def pick_category_select(callback: CallbackQuery, state: FSMContext) -> No
     await state.update_data(add_move_category=code, add_move_prompt_back=f"pickcat:back:{code}")
     await state.set_state(AddMoveFlow.waiting_for_note)
     await callback.message.edit_text(
-        "📝 Any note? Send one line or type skip",
-        reply_markup=prompt_keyboard(back_callback=f"pickcat:back:{code}"),
+        "📝 Add a note? (optional)",
+        reply_markup=prompt_keyboard(back_callback=f"pickcat:back:{code}", skip_callback="addmove:skip_note"),
     )
     await callback.answer()
+
+
+async def _show_add_move_tags_prompt(message_or_callback, back_callback: str) -> None:
+    kb = prompt_keyboard(back_callback=back_callback, skip_callback="addmove:skip_tags")
+    if isinstance(message_or_callback, Message):
+        await message_or_callback.answer("🔖 Add tags? (comma-separated, optional)", reply_markup=kb)
+    else:
+        await message_or_callback.message.edit_text("🔖 Add tags? (comma-separated, optional)", reply_markup=kb)
 
 
 @router.message(AddMoveFlow.waiting_for_note)
 async def add_move_note(message: Message, state: FSMContext) -> None:
     note = (message.text or "").strip()
-    if note.lower() == "skip":
-        note = ""
     await state.update_data(add_move_note=note)
     await state.set_state(AddMoveFlow.waiting_for_tags)
     back_callback = (await state.get_data()).get("add_move_prompt_back", "arsenal:home")
-    await message.answer(
-        "🔖 Any tags? Send comma-separated tags or type skip",
-        reply_markup=prompt_keyboard(back_callback=back_callback),
-    )
+    await _show_add_move_tags_prompt(message, back_callback)
 
 
-@router.message(AddMoveFlow.waiting_for_tags)
-async def finalize_move_creation(
-    message: Message,
+@router.callback_query(F.data == "addmove:skip_note")
+async def addmove_skip_note(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(add_move_note="")
+    await state.set_state(AddMoveFlow.waiting_for_tags)
+    data = await state.get_data()
+    back_callback = data.get("add_move_prompt_back", "arsenal:home")
+    await _show_add_move_tags_prompt(callback, back_callback)
+    await callback.answer()
+
+
+async def _do_finalize_add_move(
     state: FSMContext,
     session_maker: async_sessionmaker[AsyncSession],
+    telegram_user,
+    tags: list[str],
+    send_fn,
 ) -> None:
-    raw_tags = (message.text or "").strip()
-    tags = [] if raw_tags.lower() == "skip" else arsenal_service.normalize_tags(raw_tags)
     data = await state.get_data()
     async with session_maker() as session:
-        user, _ = await user_service.ensure_user(session, message.from_user)
+        user, _ = await user_service.ensure_user(session, telegram_user)
         move = await arsenal_service.create_move(
             session,
             user_id=user.id,
@@ -1786,14 +1836,37 @@ async def finalize_move_creation(
         await state.set_state(None)
         label, keyboard = await _build_session_picker_markup(
             session_maker=session_maker,
-            user_id=user.id,
+            user_id=move.user_id,
             state=state,
             category_code=category_code,
         )
-        await message.answer(f"Added {move.name} and selected it\n{label}", reply_markup=keyboard)
+        await send_fn(f"Added {move.name} and selected it\n{label}", keyboard)
         return
     await state.clear()
-    await message.answer(f"Added {move.name}", reply_markup=arsenal_menu_keyboard())
+    await send_fn(f"Added {move.name}", arsenal_menu_keyboard())
+
+
+@router.message(AddMoveFlow.waiting_for_tags)
+async def finalize_move_creation(
+    message: Message,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    tags = arsenal_service.normalize_tags(message.text or "")
+    await _do_finalize_add_move(state, session_maker, message.from_user, tags, message.answer)
+
+
+@router.callback_query(F.data == "addmove:skip_tags")
+async def addmove_skip_tags(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    await _do_finalize_add_move(
+        state, session_maker, callback.from_user, [],
+        lambda text, kb: callback.message.answer(text, reply_markup=kb),
+    )
+    await callback.answer()
 
 
 @router.message(F.text == "Search")
@@ -1928,8 +2001,8 @@ async def start_move_tags_edit(callback: CallbackQuery, state: FSMContext) -> No
     await state.update_data(edit_move_id=int(raw_id))
     await state.set_state(EditMoveFlow.waiting_for_tags)
     await callback.message.edit_text(
-        "🔖 Send comma-separated tags or type skip",
-        reply_markup=prompt_keyboard(back_callback=f"move:view:{raw_id}"),
+        "🔖 Add tags? (comma-separated, optional)",
+        reply_markup=prompt_keyboard(back_callback=f"move:view:{raw_id}", skip_callback=f"editmove:skip_tags:{raw_id}"),
     )
     await callback.answer()
 
@@ -2157,6 +2230,33 @@ async def save_move_name_edit(
         return
 
 
+@router.callback_query(F.data.startswith("editmove:skip_tags:"))
+async def editmove_skip_tags(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    _, _, _, raw_id = callback.data.split(":", 3)
+    move_id = int(raw_id)
+    async with session_maker() as session:
+        user, _ = await user_service.ensure_user(session, callback.from_user)
+        move = await arsenal_service.update_move(session, user_id=user.id, move_id=move_id, tags=[])
+    await state.clear()
+    if move is None:
+        await callback.message.edit_text("Move not found", reply_markup=arsenal_menu_keyboard())
+        await callback.answer()
+        return
+    shown = await _show_move_details_message(
+        target_message=callback.message,
+        session_maker=session_maker,
+        telegram_user=callback.from_user,
+        move_id=move.id,
+    )
+    if not shown:
+        await callback.message.edit_text("Move not found", reply_markup=arsenal_menu_keyboard())
+    await callback.answer()
+
+
 @router.message(EditMoveFlow.waiting_for_tags)
 async def save_move_tags_edit(
     message: Message,
@@ -2164,7 +2264,7 @@ async def save_move_tags_edit(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
     raw_tags = (message.text or "").strip()
-    tags = [] if raw_tags.lower() == "skip" else arsenal_service.normalize_tags(raw_tags)
+    tags = arsenal_service.normalize_tags(raw_tags)
     data = await state.get_data()
     async with session_maker() as session:
         user, _ = await user_service.ensure_user(session, message.from_user)

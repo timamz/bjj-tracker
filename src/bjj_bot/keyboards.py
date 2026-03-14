@@ -31,8 +31,12 @@ def _navigation_row(back_callback: str | None = None) -> list[InlineKeyboardButt
     return row
 
 
-def prompt_keyboard(*, back_callback: str | None = None) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[_navigation_row(back_callback)])
+def prompt_keyboard(*, back_callback: str | None = None, skip_callback: str | None = None) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    if skip_callback:
+        rows.append([InlineKeyboardButton(text="⏭️ Skip", callback_data=skip_callback)])
+    rows.append(_navigation_row(back_callback))
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def admin_panel_keyboard() -> InlineKeyboardMarkup:

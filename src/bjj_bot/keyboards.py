@@ -210,6 +210,7 @@ def library_edit_keyboard(
             InlineKeyboardButton(text="✏️", callback_data=f"libcat:rename:{node.category.code}"),
             InlineKeyboardButton(text="🗑️", callback_data=f"libcat:delete:{node.category.code}"),
         ])
+    rows.append([InlineKeyboardButton(text="✅ Done Editing", callback_data=f"arsenal:browse:{parent_slug}")])
     rows.append(_navigation_row(back_callback))
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

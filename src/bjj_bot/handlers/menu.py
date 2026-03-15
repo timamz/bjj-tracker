@@ -599,7 +599,8 @@ async def _render_arsenal_browser(
         categories = await arsenal_service.list_child_categories(session, category_code, user_id=user_id)
         if category_code:
             moves = await arsenal_service.list_moves_in_category(session, user_id, category_code)
-            move_rows = [(move.id, move.name) for move in moves]
+            counts = await arsenal_service.get_move_session_counts(session, [m.id for m in moves])
+            move_rows = [(m.id, f"{m.name} ×{counts.get(m.id, 0)}") for m in moves]
             category = await arsenal_service.get_category(session, category_code)
             heading = category.name if category else "Arsenal"
             if move_rows:
@@ -634,7 +635,9 @@ async def _build_move_details(
         if move is None:
             return None
         category = await arsenal_service.get_category(session, move.category_code)
-    return arsenal_service.format_move_details(move, category.name if category else None), move.id
+        counts = await arsenal_service.get_move_session_counts(session, [move.id])
+    practiced_count = counts.get(move.id, 0)
+    return arsenal_service.format_move_details(move, category.name if category else None, practiced_count), move.id
 
 
 async def _build_session_details(
@@ -681,11 +684,12 @@ async def _show_recent_moves(
     async with session_maker() as session:
         user, _ = await user_service.ensure_user(session, telegram_user)
         moves = await arsenal_service.list_recent_moves(session, user.id)
+        counts = await arsenal_service.get_move_session_counts(session, [m.id for m in moves])
     if not moves:
         return False
     markup = moves_keyboard(
         "move:view",
-        [(move.id, move.name) for move in moves],
+        [(m.id, f"{m.name} ×{counts.get(m.id, 0)}") for m in moves],
         back_callback="arsenal:home",
     )
     if edit:
@@ -1920,13 +1924,14 @@ async def arsenal_search_query(
     async with session_maker() as session:
         user, _ = await user_service.ensure_user(session, message.from_user)
         moves = await arsenal_service.search_moves(session, user.id, query)
+        counts = await arsenal_service.get_move_session_counts(session, [m.id for m in moves])
     await state.clear()
     if not moves:
         await message.answer("No matches", reply_markup=arsenal_menu_keyboard())
         return
     await message.answer(
         "🔎 Matches",
-        reply_markup=moves_keyboard("move:view", [(move.id, move.name) for move in moves], back_callback="arsenal:home"),
+        reply_markup=moves_keyboard("move:view", [(m.id, f"{m.name} ×{counts.get(m.id, 0)}") for m in moves], back_callback="arsenal:home"),
     )
 
 

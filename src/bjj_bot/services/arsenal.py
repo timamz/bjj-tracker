@@ -315,7 +315,18 @@ async def delete_move(session: AsyncSession, *, user_id: int, move_id: int) -> b
     return True
 
 
-def format_move_details(move: ArsenalMove, category_name: str | None = None) -> str:
+async def get_move_session_counts(session: AsyncSession, move_ids: list[int]) -> dict[int, int]:
+    if not move_ids:
+        return {}
+    rows = await session.execute(
+        select(SessionPracticedMove.move_id, func.count(SessionPracticedMove.id))
+        .where(SessionPracticedMove.move_id.in_(move_ids))
+        .group_by(SessionPracticedMove.move_id)
+    )
+    return {move_id: count for move_id, count in rows.all()}
+
+
+def format_move_details(move: ArsenalMove, category_name: str | None = None, practiced_count: int = 0) -> str:
     tags = ", ".join(tag.value for tag in move.tags) if move.tags else "none"
     note = move.note or "none"
     category_line = category_name or move.category_code
@@ -325,5 +336,6 @@ def format_move_details(move: ArsenalMove, category_name: str | None = None) -> 
             f"group: {category_line}",
             f"tags: {tags}",
             f"note: {note}",
+            f"Practiced {practiced_count} times",
         ]
     )

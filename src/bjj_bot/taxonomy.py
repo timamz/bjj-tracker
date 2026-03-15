@@ -37,10 +37,10 @@ CATEGORY_SEEDS: list[CategorySeed] = [
     CategorySeed(code="top_back",          name="Back & Turtle",       parent_code="top_positions", sort_order=43),
 
     # Escapes (you in a bad spot) ───────────────────────────────────────
-    CategorySeed(code="escapes",           name="Escapes",             parent_code=None,          sort_order=50),
-    CategorySeed(code="escapes_side",      name="Side Control Escapes",parent_code="escapes",     sort_order=51),
-    CategorySeed(code="escapes_mount",     name="Mount Escapes",       parent_code="escapes",     sort_order=52),
-    CategorySeed(code="escapes_back",      name="Back & Turtle Escapes", parent_code="escapes",   sort_order=53),
+    CategorySeed(code="escapes",           name="Defensive Positions",  parent_code=None,          sort_order=50),
+    CategorySeed(code="escapes_side",      name="Side Control Bottom", parent_code="escapes",     sort_order=51),
+    CategorySeed(code="escapes_mount",     name="Mount Bottom",        parent_code="escapes",     sort_order=52),
+    CategorySeed(code="escapes_back",      name="Back & Turtle Bottom",parent_code="escapes",     sort_order=53),
 
     # Leg Locks (position-ambiguous; their own department) ──────────────
     CategorySeed(code="leg_locks",         name="Leg Locks",           parent_code=None,          sort_order=60),

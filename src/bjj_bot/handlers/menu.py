@@ -599,8 +599,7 @@ async def _render_arsenal_browser(
         categories = await arsenal_service.list_child_categories(session, category_code, user_id=user_id)
         if category_code:
             moves = await arsenal_service.list_moves_in_category(session, user_id, category_code)
-            counts = await arsenal_service.get_move_session_counts(session, [m.id for m in moves])
-            move_rows = [(m.id, f"{m.name} ×{counts.get(m.id, 0)}") for m in moves]
+            move_rows = [(m.id, m.name) for m in moves]
             category = await arsenal_service.get_category(session, category_code)
             heading = category.name if category else "Arsenal"
             if move_rows:
@@ -684,12 +683,11 @@ async def _show_recent_moves(
     async with session_maker() as session:
         user, _ = await user_service.ensure_user(session, telegram_user)
         moves = await arsenal_service.list_recent_moves(session, user.id)
-        counts = await arsenal_service.get_move_session_counts(session, [m.id for m in moves])
     if not moves:
         return False
     markup = moves_keyboard(
         "move:view",
-        [(m.id, f"{m.name} ×{counts.get(m.id, 0)}") for m in moves],
+        [(m.id, m.name) for m in moves],
         back_callback="arsenal:home",
     )
     if edit:
@@ -1924,14 +1922,13 @@ async def arsenal_search_query(
     async with session_maker() as session:
         user, _ = await user_service.ensure_user(session, message.from_user)
         moves = await arsenal_service.search_moves(session, user.id, query)
-        counts = await arsenal_service.get_move_session_counts(session, [m.id for m in moves])
     await state.clear()
     if not moves:
         await message.answer("No matches", reply_markup=arsenal_menu_keyboard())
         return
     await message.answer(
         "🔎 Matches",
-        reply_markup=moves_keyboard("move:view", [(m.id, f"{m.name} ×{counts.get(m.id, 0)}") for m in moves], back_callback="arsenal:home"),
+        reply_markup=moves_keyboard("move:view", [(m.id, m.name) for m in moves], back_callback="arsenal:home"),
     )
 
 

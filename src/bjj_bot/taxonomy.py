@@ -11,112 +11,50 @@ class CategorySeed:
     sort_order: int
 
 
-def _seed(code: str, name: str, parent_code: str | None, sort_order: int) -> CategorySeed:
-    return CategorySeed(code=code, name=name, parent_code=parent_code, sort_order=sort_order)
-
-
+# Clean, strictly non-overlapping position-first taxonomy.
+# Every technique is filed under the position you initiate it from.
 CATEGORY_SEEDS: list[CategorySeed] = [
-    _seed("standing", "Standing", None, 10),
-    _seed("guard", "Guard", None, 20),
-    _seed("top_positions", "Top Positions", None, 30),
-    _seed("bottom_positions", "Bottom Positions", None, 40),
-    _seed("transitions", "Transitions", None, 50),
-    _seed("attacks", "Attacks", None, 60),
-    _seed("escapes", "Escapes and Defense", None, 70),
-    _seed("sweeps", "Sweeps and Off-Balancing", None, 80),
-    _seed("concepts", "Concepts and Movement", None, 90),
-    _seed("standing_takedowns", "Takedowns", "standing", 11),
-    _seed("standing_throws", "Throws", "standing", 12),
-    _seed("standing_trips", "Trips", "standing", 13),
-    _seed("standing_sacrifice", "Sacrifice Techniques", "standing", 14),
-    _seed("standing_clinch", "Clinch Entries", "standing", 15),
-    _seed("standing_grips", "Grip Fighting", "standing", 16),
-    _seed("standing_control", "Standing Control", "standing", 17),
-    _seed("standing_counters", "Standing Counters", "standing", 18),
-    _seed("standing_transitions", "Standing Transitions", "standing", 19),
-    _seed("guard_closed", "Closed Guard", "guard", 21),
-    _seed("guard_open", "Open Guard", "guard", 22),
-    _seed("guard_half", "Half Guard", "guard", 23),
-    _seed("guard_butterfly", "Butterfly Guard", "guard", 24),
-    _seed("guard_x_ashi", "X / Ashi-Based Guards", "guard", 25),
-    _seed("guard_sleeve", "Spider / Lasso / Sleeve-Based Guards", "guard", 26),
-    _seed("guard_dlr", "De La Riva Family", "guard", 27),
-    _seed("guard_inverted", "Inverted Guard", "guard", 28),
-    _seed("guard_wrestling_up", "Wrestling-Up / Seated Guard", "guard", 29),
-    _seed("guard_retention", "Guard Retention", "guard", 30),
-    _seed("guard_recovery", "Guard Recovery", "guard", 31),
-    _seed("guard_passing_counters", "Guard Passing Counters", "guard", 32),
-    _seed("top_mount", "Mount", "top_positions", 33),
-    _seed("top_side_control", "Side Control", "top_positions", 34),
-    _seed("top_kob", "Knee on Belly", "top_positions", 35),
-    _seed("top_north_south", "North-South", "top_positions", 36),
-    _seed("top_back", "Back Control", "top_positions", 37),
-    _seed("top_turtle", "Turtle Top", "top_positions", 38),
-    _seed("top_front_headlock", "Front Headlock Top", "top_positions", 39),
-    _seed("top_half", "Top Half Guard", "top_positions", 40),
-    _seed("top_headquarters", "Headquarters / Passing Staging", "top_positions", 41),
-    _seed("top_pins", "Pins and Rides", "top_positions", 42),
-    _seed("bottom_mount", "Mount Bottom", "bottom_positions", 43),
-    _seed("bottom_side_control", "Side Control Bottom", "bottom_positions", 44),
-    _seed("bottom_north_south", "North-South Bottom", "bottom_positions", 45),
-    _seed("bottom_back_defense", "Back Control Defense", "bottom_positions", 46),
-    _seed("bottom_turtle", "Turtle Bottom", "bottom_positions", 47),
-    _seed("bottom_half", "Bottom Half Guard", "bottom_positions", 48),
-    _seed("bottom_front_headlock", "Front Headlock Defense", "bottom_positions", 49),
-    _seed("bottom_scramble", "Scramble Recovery", "bottom_positions", 50),
-    _seed("transitions_passes", "Guard Passes", "transitions", 51),
-    _seed("transitions_passing_chains", "Passing Chains", "transitions", 52),
-    _seed("transitions_advances", "Positional Advances", "transitions", 53),
-    _seed("transitions_back_takes", "Back Takes", "transitions", 54),
-    _seed("transitions_reversals", "Reversals", "transitions", 55),
-    _seed("transitions_standups", "Stand-Ups", "transitions", 56),
-    _seed("transitions_granby", "Granby / Inversion Movements", "transitions", 57),
-    _seed("transitions_scrambles", "Scrambles", "transitions", 58),
-    _seed("attacks_chokes", "Chokes and Strangles", "attacks", 61),
-    _seed("attacks_arm_locks", "Arm Locks", "attacks", 62),
-    _seed("attacks_shoulder_locks", "Shoulder Locks", "attacks", 63),
-    _seed("attacks_wrist_locks", "Wrist Locks", "attacks", 64),
-    _seed("attacks_leg_locks", "Leg Locks", "attacks", 65),
-    _seed("attacks_neck", "Neck Attacks", "attacks", 66),
-    _seed("attacks_compression", "Compression Locks", "attacks", 67),
-    _seed("attacks_catch", "Catch / Hybrid Submissions", "attacks", 68),
-    _seed("attacks_chains", "Submission Chains", "attacks", 69),
-    _seed("escapes_submission", "Submission Escapes", "escapes", 71),
-    _seed("escapes_positional", "Positional Escapes", "escapes", 72),
-    _seed("escapes_late_stage", "Late-Stage Defense", "escapes", 73),
-    _seed("escapes_grip_breaks", "Grip Breaks", "escapes", 74),
-    _seed("escapes_frame_post", "Frame and Post Defense", "escapes", 75),
-    _seed("escapes_counter_offense", "Counter-Offense", "escapes", 76),
-    _seed("sweeps_closed", "Closed Guard Sweeps", "sweeps", 81),
-    _seed("sweeps_open", "Open Guard Sweeps", "sweeps", 82),
-    _seed("sweeps_half", "Half Guard Sweeps", "sweeps", 83),
-    _seed("sweeps_butterfly", "Butterfly Sweeps", "sweeps", 84),
-    _seed("sweeps_leg_entanglement", "Leg-Entanglement Reversals", "sweeps", 85),
-    _seed("sweeps_wrestling_up", "Wrestling-Up Reversals", "sweeps", 86),
-    _seed("sweeps_kuzushi", "Off-Balancing / Kuzushi", "sweeps", 87),
-    _seed("concepts_safety", "Breakfalls and Safety", "concepts", 91),
-    _seed("concepts_movement", "Shrimp / Bridge / Technical Stand-Up", "concepts", 92),
-    _seed("concepts_framing", "Framing and Alignment", "concepts", 93),
-    _seed("concepts_pressure", "Connection and Pressure", "concepts", 94),
-    _seed("concepts_grip_systems", "Grip Systems", "concepts", 95),
-    _seed("concepts_weight", "Weight Distribution", "concepts", 96),
-    _seed("concepts_timing", "Timing and Reaction", "concepts", 97),
-    _seed("concepts_strategy", "Strategy and Game Plan", "concepts", 98),
+    # Standing ──────────────────────────────────────────────────────────
+    CategorySeed(code="standing",          name="Standing",             parent_code=None,          sort_order=10),
+    CategorySeed(code="standing_takedowns",name="Takedowns & Trips",   parent_code="standing",    sort_order=11),
+    CategorySeed(code="standing_throws",   name="Throws",              parent_code="standing",    sort_order=12),
+    CategorySeed(code="standing_clinch",   name="Clinch & Body Lock",  parent_code="standing",    sort_order=13),
+
+    # Guard (you on bottom) ─────────────────────────────────────────────
+    CategorySeed(code="guard",             name="Guard",               parent_code=None,          sort_order=20),
+    CategorySeed(code="guard_closed",      name="Closed Guard",        parent_code="guard",       sort_order=21),
+    CategorySeed(code="guard_half",        name="Half Guard",          parent_code="guard",       sort_order=22),
+    CategorySeed(code="guard_open",        name="Open Guard & Butterfly", parent_code="guard",    sort_order=23),
+
+    # Passing (you on top, breaking/passing the guard) ──────────────────
+    CategorySeed(code="passing",           name="Passing",             parent_code=None,          sort_order=30),
+
+    # Top Control (you on top, past the guard) ──────────────────────────
+    # Note: DB code kept as top_positions for backward compat with existing rows
+    CategorySeed(code="top_positions",     name="Top Control",         parent_code=None,          sort_order=40),
+    CategorySeed(code="top_side_control",  name="Side Control",        parent_code="top_positions", sort_order=41),
+    CategorySeed(code="top_mount",         name="Mount",               parent_code="top_positions", sort_order=42),
+    CategorySeed(code="top_back",          name="Back & Turtle",       parent_code="top_positions", sort_order=43),
+
+    # Escapes (you in a bad spot) ───────────────────────────────────────
+    CategorySeed(code="escapes",           name="Escapes",             parent_code=None,          sort_order=50),
+    CategorySeed(code="escapes_side",      name="Side Control Escapes",parent_code="escapes",     sort_order=51),
+    CategorySeed(code="escapes_mount",     name="Mount Escapes",       parent_code="escapes",     sort_order=52),
+    CategorySeed(code="escapes_back",      name="Back & Turtle Escapes", parent_code="escapes",   sort_order=53),
+
+    # Leg Locks (position-ambiguous; their own department) ──────────────
+    CategorySeed(code="leg_locks",         name="Leg Locks",           parent_code=None,          sort_order=60),
 ]
 
-
-DEFAULT_MOVE_TAGS: tuple[str, ...] = (
+DEFAULT_MOVE_TAGS = (
     "gi",
     "no-gi",
-    "self-defense",
     "competition",
     "drill",
     "fundamental",
     "advanced",
     "left side",
     "right side",
-    "standing",
-    "ground",
     "submission",
     "control",
     "transition",
@@ -124,4 +62,3 @@ DEFAULT_MOVE_TAGS: tuple[str, ...] = (
     "counter",
     "chain",
 )
-

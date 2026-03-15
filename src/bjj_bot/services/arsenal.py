@@ -170,6 +170,15 @@ async def get_category(session: AsyncSession, code: str) -> ArsenalCategory | No
     return await session.get(ArsenalCategory, code)
 
 
+async def rename_category(session: AsyncSession, code: str, name: str) -> bool:
+    cat = await session.get(ArsenalCategory, code)
+    if cat is None:
+        return False
+    cat.name = name
+    await session.commit()
+    return True
+
+
 async def get_category_path(session: AsyncSession, code: str | None) -> list[ArsenalCategory]:
     if code is None:
         return []

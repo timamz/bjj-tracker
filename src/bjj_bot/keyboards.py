@@ -207,6 +207,7 @@ def library_edit_keyboard(
                 text=f"{node.category.name}{count_label}",
                 callback_data=f"libcat:edit:{node.category.code}",
             ),
+            InlineKeyboardButton(text="✏️", callback_data=f"libcat:rename:{node.category.code}"),
             InlineKeyboardButton(text="🗑️", callback_data=f"libcat:delete:{node.category.code}"),
         ])
     rows.append(_navigation_row(back_callback))

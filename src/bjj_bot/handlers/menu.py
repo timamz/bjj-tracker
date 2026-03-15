@@ -1320,7 +1320,14 @@ async def session_add_move(callback: CallbackQuery, state: FSMContext) -> None:
 async def session_save(
     callback: CallbackQuery,
     state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
+    data = await state.get_data()
+    if data.get("edit_session_id") is not None:
+        # Editing existing session — save moves, keep existing duration unchanged
+        await _commit_session_with_duration(state, session_maker, None, callback.message.answer, preserve_duration=True)
+        await callback.answer()
+        return
     await state.set_state(LogSessionFlow.waiting_for_duration)
     await callback.message.edit_text(
         "Enter session duration (minutes)",
@@ -1334,6 +1341,8 @@ async def _commit_session_with_duration(
     session_maker: async_sessionmaker[AsyncSession],
     duration_minutes: int | None,
     send_fn,
+    *,
+    preserve_duration: bool = False,
 ) -> None:
     data = await state.get_data()
     async with session_maker() as session:
@@ -1344,8 +1353,8 @@ async def _commit_session_with_duration(
                 session_id=data["edit_session_id"],
                 session_date=date.fromisoformat(data["session_date"]),
                 move_ids=data.get("selected_move_ids", []),
-                duration_minutes=duration_minutes,
-                clear_duration=duration_minutes is None,
+                duration_minutes=None if preserve_duration else duration_minutes,
+                clear_duration=False if preserve_duration else duration_minutes is None,
             )
             if training_session is None:
                 await state.clear()
@@ -2455,6 +2464,68 @@ async def libcat_delete_prompt(
         reply_markup=confirm_delete_category_keyboard(code, back_callback=f"libcat:edit:{parent_slug}"),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("libcat:rename:"))
+async def libcat_rename_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    _, _, code = callback.data.split(":", 2)
+    async with session_maker() as session:
+        cat = await arsenal_service.get_category(session, code)
+    if cat is None:
+        await callback.answer("Group not found")
+        return
+    parent_slug = cat.parent_code or "root"
+    await state.clear()
+    await state.update_data(libcat_rename_code=code, libcat_rename_parent_slug=parent_slug)
+    await state.set_state(LibCatFlow.waiting_for_rename)
+    await callback.message.edit_text(
+        f"New name for \"{cat.name}\"?",
+        reply_markup=prompt_keyboard(back_callback=f"libcat:edit:{parent_slug}"),
+    )
+    await callback.answer()
+
+
+@router.message(LibCatFlow.waiting_for_rename)
+async def libcat_rename_submit(
+    message: Message,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    name = (message.text or "").strip()
+    data = await state.get_data()
+    code = data.get("libcat_rename_code")
+    parent_slug = data.get("libcat_rename_parent_slug", "root")
+    if not name:
+        await message.answer(
+            "Send a group name",
+            reply_markup=prompt_keyboard(back_callback=f"libcat:edit:{parent_slug}"),
+        )
+        return
+    parent_code = None if parent_slug == "root" else parent_slug
+    async with session_maker() as session:
+        user, _ = await user_service.ensure_user(session, message.from_user)
+        await arsenal_service.rename_category(session, code, name)
+        categories = await arsenal_service.list_child_categories(session, parent_code, user_id=user.id)
+        if parent_code:
+            cat = await arsenal_service.get_category(session, parent_code)
+            heading = f"✏️ Edit: {cat.name}" if cat else "✏️ Edit Layout"
+            back_callback = f"libcat:edit:{cat.parent_code}" if cat and cat.parent_code else "libcat:edit:root"
+        else:
+            heading = "✏️ Edit Layout"
+            back_callback = "menu:arsenal"
+    await state.clear()
+    await message.answer(
+        heading,
+        reply_markup=library_edit_keyboard(
+            category_nodes=categories,
+            parent_slug=parent_slug,
+            back_callback=back_callback,
+        ),
+    )
 
 
 @router.callback_query(F.data.startswith("libcat:delete_confirm:"))

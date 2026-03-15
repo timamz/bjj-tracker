@@ -336,6 +336,6 @@ def format_move_details(move: ArsenalMove, category_name: str | None = None, pra
             f"group: {category_line}",
             f"tags: {tags}",
             f"note: {note}",
-            f"Practiced {practiced_count} times",
+            f"Practiced {practiced_count} {'time' if practiced_count == 1 else 'times'}",
         ]
     )

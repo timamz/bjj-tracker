@@ -269,13 +269,14 @@ def upgrade_history_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def move_details_keyboard(move_id: int) -> InlineKeyboardMarkup:
+def move_details_keyboard(move_id: int, category_code: str | None = None) -> InlineKeyboardMarkup:
+    back = f"arsenal:browse:{category_code}" if category_code else "arsenal:home"
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="✏️ Edit Move", callback_data=f"move:edit:{move_id}")],
             [InlineKeyboardButton(text="📦 Move", callback_data=f"move:edit_group:{move_id}")],
             [InlineKeyboardButton(text="🗑️ Delete Move", callback_data=f"move:delete:{move_id}")],
-            _navigation_row("arsenal:home"),
+            _navigation_row(back),
         ]
     )
 

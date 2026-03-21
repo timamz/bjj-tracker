@@ -368,11 +368,11 @@ async def _show_move_details_message(
     )
     if payload is None:
         return False
-    text, resolved_move_id = payload
+    text, resolved_move_id, category_code = payload
     if edit:
-        await target_message.edit_text(text, reply_markup=move_details_keyboard(resolved_move_id))
+        await target_message.edit_text(text, reply_markup=move_details_keyboard(resolved_move_id, category_code))
     else:
-        await target_message.answer(text, reply_markup=move_details_keyboard(resolved_move_id))
+        await target_message.answer(text, reply_markup=move_details_keyboard(resolved_move_id, category_code))
     return True
 
 
@@ -627,7 +627,7 @@ async def _build_move_details(
     session_maker: async_sessionmaker[AsyncSession],
     telegram_user,
     move_id: int,
-) -> tuple[str, int] | None:
+) -> tuple[str, int, str | None] | None:
     async with session_maker() as session:
         user, _ = await user_service.ensure_user(session, telegram_user)
         move = await arsenal_service.get_move(session, user.id, move_id)
@@ -636,7 +636,7 @@ async def _build_move_details(
         category = await arsenal_service.get_category(session, move.category_code)
         counts = await arsenal_service.get_move_session_counts(session, [move.id])
     practiced_count = counts.get(move.id, 0)
-    return arsenal_service.format_move_details(move, category.name if category else None, practiced_count), move.id
+    return arsenal_service.format_move_details(move, category.name if category else None, practiced_count), move.id, move.category_code
 
 
 async def _build_session_details(

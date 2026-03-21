@@ -273,6 +273,7 @@ def move_details_keyboard(move_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="✏️ Edit Move", callback_data=f"move:edit:{move_id}")],
+            [InlineKeyboardButton(text="📦 Move", callback_data=f"move:edit_group:{move_id}")],
             [InlineKeyboardButton(text="🗑️ Delete Move", callback_data=f"move:delete:{move_id}")],
             _navigation_row("arsenal:home"),
         ]

@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     bot_token: str = Field(alias="BOT_TOKEN")
     owner_id: int | None = Field(default=None, alias="OWNER_ID")
+    proxy_url: str | None = Field(default=None, alias="PROXY_URL")
     db_path: Path = Field(default=Path("/data/bjj_bot.sqlite3"), alias="DB_PATH")
     timezone: str = Field(default="UTC", alias="TIMEZONE")
     rank_stickers_raw: str = Field(default="{}", alias="RANK_STICKERS")

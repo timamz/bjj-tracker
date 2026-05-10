@@ -5,12 +5,4 @@ services:
     env_file:
       - .env
     volumes:
-      - bjj_data:/data
-
-volumes:
-  bjj_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/timamz/dev/bjj-tracker/data
+      - ./data:/data

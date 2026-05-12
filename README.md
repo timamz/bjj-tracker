@@ -41,6 +41,26 @@ docker compose up -d --build
 
 The SQLite file is stored in `./data` on the host and mounted into the container at `/data`.
 
+## Agent CLI
+
+A `bjj-cli` command is installed alongside the bot for LLM-agent or scripting
+use against the same SQLite database. See [`docs/AGENT.md`](docs/AGENT.md) for
+the full reference; a quick taste:
+
+```bash
+.venv/bin/bjj-cli --json status
+.venv/bin/bjj-cli --json session log --date today --duration 90 \
+    --move-name "scissor sweep" --fuzzy-names
+.venv/bin/bjj-cli --json session list --limit 10
+.venv/bin/bjj-cli --json category create --name "Funky Guard" --parent guard
+.venv/bin/bjj-cli --json promotion update 3 --stripes 2
+.venv/bin/bjj-cli --json user set-competitor --on
+```
+
+The CLI covers every user-facing action the Telegram bot exposes — sessions,
+moves, arsenal groups (categories), promotions, user/competitor toggles, and
+the owner `admin stats` view.
+
 ## Notes
 
 - `RANK_STICKERS` accepts JSON keyed by `belt:stripes`, for example `{"white:0":"<file_id>","blue:2":"<file_id>","black:4":"<file_id>"}`.

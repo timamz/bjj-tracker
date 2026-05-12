@@ -13,6 +13,9 @@ dependencies = [
   "sqlalchemy>=2.0.38,<3.0",
 ]
 
+[project.scripts]
+bjj-cli = "bjj_bot.cli:main"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3,<9.0",

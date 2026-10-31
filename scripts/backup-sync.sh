@@ -7,7 +7,7 @@
 # the remote copies eventually consistent: every local snapshot of the last
 # RETENTION_DAYS is copied (with retries) to
 #   1. Google Drive  (rclone remote "gdrive", root_folder_id = bjj-bot-backups folder)
-#   2. Yandex Disk   (WebDAV, backfills days whose upload failed)
+#   2. Yandex Disk   (DISABLED; opt-in with YANDEX_SYNC=1)
 # Nothing is ever deleted or overwritten; already-present files are skipped by size.
 #
 # Cron (host):  20 5,17 * * *  /home/timamz/dev/bjj-tracker/scripts/backup-sync.sh >> /home/timamz/bjj-backup-sync.log 2>&1
@@ -53,8 +53,8 @@ else
     log "gdrive: remote '${GDRIVE_REMOTE}' not configured, skipping"
 fi
 
-# --- Yandex Disk backfill ---
-if [[ -n "${YANDEX_LOGIN}" && -n "${YANDEX_APP_PASSWORD}" ]]; then
+# --- Yandex Disk backfill (DISABLED by default; re-enable with YANDEX_SYNC=1) ---
+if [[ "${YANDEX_SYNC:-0}" == "1" && -n "${YANDEX_LOGIN}" && -n "${YANDEX_APP_PASSWORD}" ]]; then
     log "yandex: backfill start"
     export RCLONE_CONFIG_YA_TYPE=webdav RCLONE_CONFIG_YA_URL=https://webdav.yandex.com RCLONE_CONFIG_YA_VENDOR=other
     export RCLONE_CONFIG_YA_USER="${YANDEX_LOGIN}"
